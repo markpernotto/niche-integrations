@@ -1,0 +1,39 @@
+{
+  "name": "niche-integrations",
+  "version": "1.0.0",
+  "description": "Niche Partner API integrations for the Integration Competition",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @niche-integrations/wordpress dev",
+    "build": "pnpm -r build",
+    "build:wordpress": "pnpm --filter @niche-integrations/core build && pnpm --filter @niche-integrations/wordpress build",
+    "build:facebook-leads": "pnpm --filter @niche-integrations/core build && pnpm --filter @niche-integrations/facebook-leads build",
+    "start:wordpress": "pnpm --filter @niche-integrations/wordpress start",
+    "start:facebook-leads": "pnpm --filter @niche-integrations/facebook-leads start",
+    "start:all": "concurrently \"pnpm start:wordpress\" \"pnpm start:facebook-leads\"",
+    "test:auth": "pnpm --filter @niche-integrations/core test:auth",
+    "test:auth:wordpress": "pnpm test:auth",
+    "test:auth:facebook": "INTEGRATION=facebook-leads pnpm test:auth",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

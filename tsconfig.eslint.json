@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "packages"
+  },
+  "include": [
+    "packages/core/src/**/*.ts",
+    "packages/wordpress/src/**/*.ts",
+    "packages/facebook-leads/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}

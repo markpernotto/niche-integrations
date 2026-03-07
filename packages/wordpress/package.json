@@ -1,0 +1,26 @@
+{
+  "name": "@niche-integrations/wordpress",
+  "version": "1.0.0",
+  "description": "WordPress integration for Niche - captures form submissions and creates leads",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "start": "node dist/webhook.js",
+    "dev": "ts-node src/webhook.ts",
+    "test": "echo \"No tests yet\"",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@niche-integrations/core": "workspace:*",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.2"
+  }
+}
