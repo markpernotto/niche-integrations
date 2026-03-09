@@ -1,10 +1,18 @@
 /**
  * Transform Facebook Lead Ads data to Niche lead format
+ *
+ * Niche API schema: { name, phone, info, source }
+ * - name:   full name string
+ * - phone:  phone number
+ * - info:   all other fields (email, address, custom Q&A) as formatted text
+ * - source: "FACEBOOK"
  */
 
 import axios from 'axios';
 import { CreateLeadRequest } from '@niche-integrations/core';
 import { FacebookLeadData } from './types';
+
+const GRAPH_API_VERSION = 'v21.0';
 
 /**
  * Fetch full lead data from Facebook Graph API
@@ -14,7 +22,7 @@ export async function fetchFacebookLeadData(
   accessToken: string
 ): Promise<FacebookLeadData> {
   const response = await axios.get<FacebookLeadData>(
-    `https://graph.facebook.com/v18.0/${leadId}`,
+    `https://graph.facebook.com/${GRAPH_API_VERSION}/${leadId}`,
     {
       params: {
         access_token: accessToken,
@@ -34,60 +42,71 @@ function getFieldValue(leadData: FacebookLeadData, fieldName: string): string | 
 }
 
 /**
+ * Build full name from available Facebook fields
+ */
+function buildName(leadData: FacebookLeadData): string | undefined {
+  const firstName = getFieldValue(leadData, 'first_name') || getFieldValue(leadData, 'firstname');
+  const lastName = getFieldValue(leadData, 'last_name') || getFieldValue(leadData, 'lastname');
+
+  if (firstName || lastName) {
+    return [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
+  }
+
+  const fullName = getFieldValue(leadData, 'full_name') || getFieldValue(leadData, 'name');
+  return fullName?.trim() || undefined;
+}
+
+/**
+ * Extract phone from Facebook fields
+ */
+function extractPhone(leadData: FacebookLeadData): string | undefined {
+  return getFieldValue(leadData, 'phone_number') || getFieldValue(leadData, 'phone');
+}
+
+/**
+ * Build the info block: email, address, custom Q&A, and any other fields as formatted text.
+ * Per spec, everything except name/phone goes here.
+ */
+function buildInfo(leadData: FacebookLeadData): string | undefined {
+  const nameFields = new Set([
+    'first_name', 'firstname', 'last_name', 'lastname', 'full_name', 'name',
+  ]);
+  const phoneFields = new Set(['phone_number', 'phone']);
+
+  const lines: string[] = [];
+
+  for (const field of leadData.field_data) {
+    if (nameFields.has(field.name) || phoneFields.has(field.name)) continue;
+    const value = field.values?.join(', ');
+    if (!value) continue;
+
+    // Use a readable label
+    const label = field.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    lines.push(`${label}: ${value}`);
+  }
+
+  // Add Facebook metadata
+  if (leadData.id) {
+    lines.push(`Facebook Lead ID: ${leadData.id}`);
+  }
+  if (leadData.created_time) {
+    lines.push(`Created: ${leadData.created_time}`);
+  }
+
+  return lines.length > 0 ? lines.join('\n') : undefined;
+}
+
+/**
  * Transform Facebook lead to Niche lead format
  */
 export function transformToNicheLead(
   leadData: FacebookLeadData,
-  source: string = 'facebook-lead-ads'
+  _source?: string
 ): CreateLeadRequest {
-  // Extract common fields
-  const firstName = getFieldValue(leadData, 'first_name') || getFieldValue(leadData, 'firstname');
-  const lastName = getFieldValue(leadData, 'last_name') || getFieldValue(leadData, 'lastname');
-  const email = getFieldValue(leadData, 'email');
-  const phone = getFieldValue(leadData, 'phone_number') || getFieldValue(leadData, 'phone');
-  
-  // Extract full name if separate fields not available
-  let parsedFirstName = firstName;
-  let parsedLastName = lastName;
-  if (!firstName && !lastName) {
-    const fullName = getFieldValue(leadData, 'full_name') || getFieldValue(leadData, 'name');
-    if (fullName) {
-      const parts = fullName.trim().split(/\s+/);
-      parsedFirstName = parts[0];
-      parsedLastName = parts.slice(1).join(' ') || undefined;
-    }
-  }
-
-  // Extract message/question responses
-  const messageFields: string[] = [];
-  const messageFieldNames = ['message', 'comments', 'question', 'additional_information'];
-  
-  for (const fieldName of messageFieldNames) {
-    const value = getFieldValue(leadData, fieldName);
-    if (value) {
-      messageFields.push(value);
-    }
-  }
-
-  // Build metadata from all fields
-  const metadata: Record<string, unknown> = {
-    facebookLeadId: leadData.id,
-    facebookCreatedTime: leadData.created_time,
-  };
-
-  for (const field of leadData.field_data) {
-    if (!['first_name', 'last_name', 'firstname', 'lastname', 'full_name', 'name', 'email', 'phone_number', 'phone', 'message', 'comments', 'question', 'additional_information'].includes(field.name)) {
-      metadata[field.name] = field.values.join(', ');
-    }
-  }
-
   return {
-    firstName: parsedFirstName,
-    lastName: parsedLastName,
-    email,
-    phone,
-    source,
-    message: messageFields.length > 0 ? messageFields.join('\n\n') : undefined,
-    metadata,
+    name: buildName(leadData),
+    phone: extractPhone(leadData),
+    info: buildInfo(leadData),
+    source: 'FACEBOOK',
   };
 }

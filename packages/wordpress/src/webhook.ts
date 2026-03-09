@@ -1,11 +1,14 @@
 /**
- * Express webhook server for WordPress form submissions
+ * Express webhook server for WordPress form submissions (FALLBACK)
+ *
+ * The primary path is the PHP plugin calling Niche API directly.
+ * This server is kept as an optional fallback for setups that prefer a
+ * webhook relay (e.g., testing without PHP changes).
  */
 
 import path from 'path';
 import { config } from 'dotenv';
 
-// Load root .env when running from package (e.g. pnpm start in packages/wordpress)
 config({ path: path.join(__dirname, '..', '..', '..', '.env') });
 
 import express, { type Application, type NextFunction, type Request, type Response } from 'express';
@@ -48,22 +51,22 @@ app.post(
       return;
     }
 
-    if (!formData.email && !formData.phone && !formData.phoneNumber) {
+    if (!formData.phone && !formData.phoneNumber && !formData.mobile) {
       res.status(400).json({
         error: 'Missing contact information',
-        message: 'At least email or phone is required',
+        message: 'Phone number is required',
       });
       return;
     }
 
-    const leadData = transformToNicheLead(formData, source ?? 'wordpress');
+    const leadData = transformToNicheLead(formData);
     const lead: NicheLead = await nicheClient.createLead(businessId, leadData);
 
     res.status(201).json({
       success: true,
       lead: {
         id: lead.id,
-        email: lead.email,
+        name: lead.name,
         phone: lead.phone,
       },
     });
@@ -81,7 +84,7 @@ const PORT = Number(process.env.PORT) || 3333;
 
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`WordPress webhook server listening on port ${PORT}`);
+    console.log(`WordPress webhook server (fallback) listening on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`Webhook endpoint: http://localhost:${PORT}/webhook`);
   });

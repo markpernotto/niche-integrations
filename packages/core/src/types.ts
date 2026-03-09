@@ -4,13 +4,10 @@
 
 export interface NicheLead {
   id?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
+  name?: string;
   phone?: string;
+  info?: string;
   source?: string;
-  message?: string;
-  metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -47,23 +44,17 @@ export interface NicheApiError {
 }
 
 export interface CreateLeadRequest {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
+  name?: string;
   phone?: string;
+  info?: string;
   source?: string;
-  message?: string;
-  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateLeadRequest {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
+  name?: string;
   phone?: string;
+  info?: string;
   source?: string;
-  message?: string;
-  metadata?: Record<string, unknown>;
 }
 
 export interface ListLeadsParams {
