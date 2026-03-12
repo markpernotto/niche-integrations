@@ -105,6 +105,30 @@ Use `wpcf7_before_send_mail` which fires regardless of mail outcome.
 ### 6. Business dropdown PHP warning
 The businesses API returns `{ "items": [...] }` — iterate `$result['items']`, not `$result` directly.
 
+### 7. Facebook App must be "Business" type, not "Facebook Login for Business"
+"Facebook Login for Business" apps do NOT support the Webhooks product with `leadgen` subscriptions or the `pages_manage_metadata` permission. When creating a Facebook app for Lead Ads webhooks, select **"Business"** type (via "Other" → "Business" during app creation).
+
+### 8. Facebook App must be in Live mode to receive real webhook data
+While in Development mode, Facebook only delivers test webhooks from the dashboard UI. **No real lead data is delivered to app admins, developers, or testers until the app is switched to Live mode.** Toggle Development → Live in the app dashboard header.
+
+### 9. Facebook Page must be subscribed to the app (page-level subscription)
+Two separate subscriptions are required:
+- **App-level**: In the app's Webhooks product, subscribe to `leadgen` field (done in the Webhooks UI)
+- **Page-level**: The Facebook Page must be subscribed to the app via Graph API or the Lead Ads Testing Tool
+
+The easiest way to do the page-level subscription: use the **Lead Ads Testing Tool** at developers.facebook.com/tools/lead-ads-testing — selecting the page there and clicking "Create lead" will associate the page with the app automatically (look for the green checkmark next to the App ID).
+
+Alternatively via Graph API Explorer: select the app, switch "User or Page" to the Page (page token), POST to `me/subscribed_apps` with param `subscribed_fields=leadgen`. This only works when the app is in **Live mode**.
+
+### 10. PAGE_ID_TO_BUSINESS_MAP must use the correct page ID
+The page ID in webhook payloads (visible in `page_id` field) may differ from what you expect. Verify the actual page ID from a real webhook payload and update `PAGE_ID_TO_BUSINESS_MAP` in `.env` accordingly. The fallback `NICHE_BUSINESS_ID` will catch leads if the page ID isn't in the map.
+
+### 11. Facebook Graph API version
+Use `v25.0` (current as of March 2026). v21.0 is deprecated — Facebook auto-upgrades calls but logs a warning. Set `GRAPH_API_VERSION = 'v25.0'` in `transformer.ts`.
+
+### 12. Facebook Access Token expiry
+The `FACEBOOK_ACCESS_TOKEN` in `.env` (used to fetch lead data from the Graph API) expires. If lead fetches fail with "Session has expired" errors, generate a fresh token via Graph API Explorer and update `.env`, then restart the server.
+
 ---
 
 ## Repo Structure
@@ -121,6 +145,12 @@ packages/
     src/credentials.ts               # Shared OAuth credential helpers
     scripts/test-auth.js             # Manual API test script
 ```
+
+## Pending Work
+
+- **HubSpot** — integration needs to be tested and cleaned up (next session)
+
+---
 
 ## Running the Node.js integrations
 

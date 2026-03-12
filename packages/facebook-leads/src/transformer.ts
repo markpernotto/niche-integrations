@@ -12,7 +12,7 @@ import axios from 'axios';
 import { CreateLeadRequest } from '@niche-integrations/core';
 import { FacebookLeadData } from './types';
 
-const GRAPH_API_VERSION = 'v21.0';
+const GRAPH_API_VERSION = 'v25.0';
 
 /**
  * Fetch full lead data from Facebook Graph API

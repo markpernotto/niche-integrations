@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "echo \"No tests yet\"",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "discover": "node scripts/setup.js"
   },
   "dependencies": {
     "@niche-integrations/core": "workspace:*",
