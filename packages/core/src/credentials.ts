@@ -7,11 +7,12 @@
 
 import type { NicheClientConfig } from './client';
 
-export type IntegrationName = 'wordpress' | 'facebook-leads';
+export type IntegrationName = 'wordpress' | 'facebook-leads' | 'hubspot';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
   'facebook-leads': 'NICHE_FACEBOOK_LEADS',
+  hubspot: 'NICHE_HUBSPOT',
 };
 
 /**

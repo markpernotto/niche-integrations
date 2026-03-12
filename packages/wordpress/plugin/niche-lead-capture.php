@@ -22,14 +22,16 @@ define('NICHE_LC_PLUGIN_URL', plugin_dir_url(__FILE__));
  */
 class Niche_Lead_Capture {
 
-    private $api_key;
+    private $client_id;
+    private $client_secret;
     private $business_id;
     private $api_base_url;
     private $success_message;
     private $redirect_url;
 
     public function __construct() {
-        $this->api_key         = get_option('niche_api_key', '');
+        $this->client_id       = get_option('niche_client_id', '');
+        $this->client_secret   = get_option('niche_client_secret', '');
         $this->business_id     = get_option('niche_business_id', '');
         $this->api_base_url    = get_option('niche_api_base_url', 'https://app.nicheandleads.com');
         $this->success_message = get_option('niche_success_message', 'Thank you! Your information has been submitted.');
@@ -56,9 +58,11 @@ class Niche_Lead_Capture {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
 
         // Third-party form hooks
-        add_action('wpcf7_mail_sent', array($this, 'handle_contact_form_7'));
+        add_action('wpcf7_before_send_mail', array($this, 'handle_contact_form_7'));
         add_action('wpforms_process_complete', array($this, 'handle_wpforms'), 10, 4);
         add_action('gform_after_submission', array($this, 'handle_gravity_forms'), 10, 2);
+
+        error_log('Niche Lead Capture: plugin loaded, hooks registered');
     }
 
     // =========================================================================
@@ -66,21 +70,57 @@ class Niche_Lead_Capture {
     // =========================================================================
 
     /**
+     * Exchange client credentials for an OAuth bearer token.
+     */
+    private function get_access_token() {
+        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/oauth/token';
+
+        $response = wp_remote_post($url, array(
+            'timeout' => 15,
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => wp_json_encode(array(
+                'grant_type'    => 'client_credentials',
+                'client_id'     => $this->client_id,
+                'client_secret' => $this->client_secret,
+                'scope'         => 'leads:write leads:read businesses:read businesses:write',
+            )),
+        ));
+
+        if (is_wp_error($response)) {
+            error_log('Niche Lead Capture: OAuth error — ' . $response->get_error_message());
+            return $response;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (empty($body['access_token'])) {
+            error_log('Niche Lead Capture: OAuth failed — ' . wp_remote_retrieve_body($response));
+            return new WP_Error('oauth_failed', 'Could not obtain access token');
+        }
+
+        return $body['access_token'];
+    }
+
+    /**
      * POST lead directly to Niche API
      * Payload: { name, phone, info, source: "WORDPRESS" }
      */
     private function create_lead($lead_data) {
-        if (empty($this->api_key) || empty($this->business_id)) {
-            error_log('Niche Lead Capture: API Key or Business ID not configured');
+        if (empty($this->client_id) || empty($this->client_secret) || empty($this->business_id)) {
+            error_log('Niche Lead Capture: Client ID, Client Secret, or Business ID not configured');
             return new WP_Error('not_configured', 'Plugin is not fully configured');
         }
 
-        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses/' . $this->business_id . '/leads/';
+        $token = $this->get_access_token();
+        if (is_wp_error($token)) {
+            return $token;
+        }
+
+        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses/' . $this->business_id . '/leads';
 
         $payload = array(
-            'name'   => isset($lead_data['name'])   ? sanitize_text_field($lead_data['name'])   : '',
-            'phone'  => isset($lead_data['phone'])  ? sanitize_text_field($lead_data['phone'])  : '',
-            'info'   => isset($lead_data['info'])    ? sanitize_textarea_field($lead_data['info'])    : '',
+            'name'   => isset($lead_data['name'])  ? sanitize_text_field($lead_data['name'])        : '',
+            'phone'  => isset($lead_data['phone']) ? sanitize_text_field($lead_data['phone'])       : '',
+            'info'   => isset($lead_data['info'])  ? sanitize_textarea_field($lead_data['info'])    : '',
             'source' => 'WORDPRESS',
         );
 
@@ -89,7 +129,7 @@ class Niche_Lead_Capture {
             'timeout' => 15,
             'headers' => array(
                 'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $this->api_key,
+                'Authorization' => 'Bearer ' . $token,
             ),
             'body' => wp_json_encode($payload),
         ));
@@ -101,6 +141,8 @@ class Niche_Lead_Capture {
 
         $status = wp_remote_retrieve_response_code($response);
         $body   = wp_remote_retrieve_body($response);
+
+        error_log('Niche Lead Capture: API response HTTP ' . $status . ' body=' . substr($body, 0, 200));
 
         if ($status < 200 || $status >= 300) {
             error_log('Niche Lead Capture Error: HTTP ' . $status . ' — ' . $body);
@@ -114,16 +156,21 @@ class Niche_Lead_Capture {
      * GET /v1/businesses — used by the admin business selector dropdown
      */
     private function fetch_businesses() {
-        if (empty($this->api_key)) {
-            return new WP_Error('no_api_key', 'API key is not set');
+        if (empty($this->client_id) || empty($this->client_secret)) {
+            return new WP_Error('no_credentials', 'Client ID and Secret are not set');
         }
 
-        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses/';
+        $token = $this->get_access_token();
+        if (is_wp_error($token)) {
+            return $token;
+        }
+
+        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses';
 
         $response = wp_remote_get($url, array(
             'timeout' => 15,
             'headers' => array(
-                'Authorization' => 'Bearer ' . $this->api_key,
+                'Authorization' => 'Bearer ' . $token,
             ),
         ));
 
@@ -202,7 +249,8 @@ class Niche_Lead_Capture {
     }
 
     public function register_settings() {
-        register_setting('niche_lead_capture', 'niche_api_key');
+        register_setting('niche_lead_capture', 'niche_client_id');
+        register_setting('niche_lead_capture', 'niche_client_secret');
         register_setting('niche_lead_capture', 'niche_business_id');
         register_setting('niche_lead_capture', 'niche_api_base_url');
         register_setting('niche_lead_capture', 'niche_success_message');
@@ -211,10 +259,10 @@ class Niche_Lead_Capture {
 
     public function render_settings_page() {
         $businesses = array();
-        if (!empty($this->api_key)) {
+        if (!empty($this->client_id) && !empty($this->client_secret)) {
             $result = $this->fetch_businesses();
             if (!is_wp_error($result) && is_array($result)) {
-                $businesses = $result;
+                $businesses = isset($result['items']) ? $result['items'] : $result;
             }
         }
         ?>
@@ -224,14 +272,25 @@ class Niche_Lead_Capture {
                 <?php settings_fields('niche_lead_capture'); ?>
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><label for="niche_api_key">Niche API Key</label></th>
+                        <th scope="row"><label for="niche_client_id">Niche Client ID</label></th>
+                        <td>
+                            <input type="text"
+                                   id="niche_client_id"
+                                   name="niche_client_id"
+                                   value="<?php echo esc_attr(get_option('niche_client_id')); ?>"
+                                   class="regular-text" />
+                            <p class="description">Your Niche WordPress integration Client ID</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="niche_client_secret">Niche Client Secret</label></th>
                         <td>
                             <input type="password"
-                                   id="niche_api_key"
-                                   name="niche_api_key"
-                                   value="<?php echo esc_attr(get_option('niche_api_key')); ?>"
+                                   id="niche_client_secret"
+                                   name="niche_client_secret"
+                                   value="<?php echo esc_attr(get_option('niche_client_secret')); ?>"
                                    class="regular-text" />
-                            <p class="description">Your Niche Partner API key (Bearer token)</p>
+                            <p class="description">Your Niche WordPress integration Client Secret</p>
                         </td>
                     </tr>
                     <tr>
@@ -318,17 +377,16 @@ class Niche_Lead_Capture {
             wp_send_json_error('Unauthorized');
         }
 
-        // Use the POSTed API key (might not be saved yet)
-        $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : $this->api_key;
-        if (empty($api_key)) {
-            wp_send_json_error('No API key provided');
+        $token = $this->get_access_token();
+        if (is_wp_error($token)) {
+            wp_send_json_error($token->get_error_message());
         }
 
-        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses/';
+        $url = rtrim($this->api_base_url, '/') . '/api/partner/v1/businesses';
         $response = wp_remote_get($url, array(
             'timeout' => 15,
             'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
+                'Authorization' => 'Bearer ' . $token,
             ),
         ));
 
@@ -496,9 +554,10 @@ class Niche_Lead_Capture {
     // All now build { name, phone, info } and call create_lead() directly
     // =========================================================================
 
-    public function handle_contact_form_7($contact_form) {
-        $submission = WPCF7_Submission::get_instance();
-        if (!$submission) return;
+    public function handle_contact_form_7($contact_form, &$abort = false, $submission = null) {
+        error_log('Niche Lead Capture: CF7 hook fired');
+        if (!$submission) $submission = WPCF7_Submission::get_instance();
+        if (!$submission) { error_log('Niche Lead Capture: no CF7 submission instance'); return; }
 
         $data = $submission->get_posted_data();
         $fields = array(
