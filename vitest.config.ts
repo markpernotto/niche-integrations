@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     include: ['packages/*/src/**/*.test.ts'],
     environment: 'node',
+    forceExit: true,
+    pool: 'forks',
   },
 });

@@ -124,7 +124,9 @@ pnpm test:watch   # watch mode
 
 Tests use [Vitest](https://vitest.dev) and run from the repo root via [vitest.config.ts](vitest.config.ts).
 
-### Coverage
+### Unit tests — transformers (116 tests)
+
+Pure function tests with no network calls or mocking:
 
 | Package | Test file | What's tested |
 |---|---|---|
@@ -136,6 +138,19 @@ Tests use [Vitest](https://vitest.dev) and run from the repo root via [vitest.co
 | hubspot | [transformer.test.ts](packages/hubspot/src/transformer.test.ts) | Contact transform, deal transform with/without associated contact |
 
 All transformers are tested for: correct `source` value, name assembly, phone normalization (10-digit → E.164, 11-digit starting with 1 → E.164, formatted strings, international pass-through), field fallbacks, and `info` block content.
+
+### Integration tests — HTTP routes (28 tests)
+
+Supertest tests against each Express app with external dependencies (NicheClient, platform APIs) mocked:
+
+| Package | Test file | What's tested |
+|---|---|---|
+| facebook-leads | [index.test.ts](packages/facebook-leads/src/index.test.ts) | Health, webhook GET verification (valid/invalid token), POST signature validation (valid/invalid/missing), async lead processing, deduplication |
+| hubspot | [index.test.ts](packages/hubspot/src/index.test.ts) | Health, webhook signature validation, sync 401 when token unset |
+| jobber | [index.test.ts](packages/jobber/src/index.test.ts) | Health, sync 401 when unauthenticated, OAuth redirect |
+| salesforce | [index.test.ts](packages/salesforce/src/index.test.ts) | Health, sync 401 when unauthenticated, OAuth redirect |
+| zoho-crm | [index.test.ts](packages/zoho-crm/src/index.test.ts) | Health, sync 401 when unauthenticated, OAuth redirect |
+| freshsales | [index.test.ts](packages/freshsales/src/index.test.ts) | Health, sync 500 when unconfigured |
 
 ---
 

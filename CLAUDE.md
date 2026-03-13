@@ -353,9 +353,9 @@ pnpm test          # run all tests once (vitest run)
 pnpm test:watch    # watch mode (vitest)
 ```
 
-### What's tested (116 tests, 6 files)
+### What's tested (144 tests, 12 files)
 
-All transformer functions are unit-tested with no mocking and no network calls:
+**Unit tests — transformers (116 tests, 6 files):** Pure function tests, no mocking, no network.
 
 | File | Covered behaviors |
 |---|---|
@@ -368,9 +368,24 @@ All transformer functions are unit-tested with no mocking and no network calls:
 
 **Phone normalization** is tested consistently across all integrations: 10-digit → `+1NNNN`, 11-digit starting with `1` → `+1NNNN`, formatted strings (parens/dashes) → normalized, international (UK etc.) → passed through as-is.
 
+**Integration tests — HTTP routes (28 tests, 6 files):** Supertest against Express app, NicheClient and platform API calls mocked.
+
+| File | Covered behaviors |
+|---|---|
+| `packages/facebook-leads/src/index.test.ts` | Health, GET /webhook token verification, POST /webhook signature (valid/invalid/missing), async lead created, dedup skips repeat leadgen_id |
+| `packages/hubspot/src/index.test.ts` | Health, POST /webhook signature (valid/invalid/missing), POST /sync 401 when no access token |
+| `packages/jobber/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Jobber |
+| `packages/salesforce/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Salesforce |
+| `packages/zoho-crm/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Zoho |
+| `packages/freshsales/src/index.test.ts` | Health, POST /sync 500 when API key/domain not configured |
+
+**Mocking pattern for integration tests:** `vi.hoisted()` sets env vars before module load (prevents dotenv from leaking real credentials), `vi.mock('dotenv')` prevents `.env` file loading, `vi.mock('@niche-integrations/core')` mocks `NicheClient` as a class with spy methods.
+
 ### Adding new tests
 
-Test files live alongside source: `packages/<name>/src/transformer.test.ts`. No per-package config needed — the root `vitest.config.ts` picks them up automatically.
+Unit test files live alongside source: `packages/<name>/src/transformer.test.ts`.
+Integration test files: `packages/<name>/src/index.test.ts`.
+No per-package config needed — the root `vitest.config.ts` picks them up automatically.
 
 ---
 
