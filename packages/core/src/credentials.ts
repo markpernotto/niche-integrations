@@ -16,7 +16,11 @@ export type IntegrationName =
   | 'jobber'
   | 'salesforce'
   | 'zoho-crm'
-  | 'freshsales';
+  | 'freshsales'
+  | 'close-crm'
+  | 'keap'
+  | 'activecampaign'
+  | 'pipedrive';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
@@ -28,6 +32,10 @@ const ENV_PREFIXES: Record<IntegrationName, string> = {
   salesforce: 'NICHE_SALESFORCE',
   'zoho-crm': 'NICHE_ZOHO_CRM',
   freshsales: 'NICHE_FRESHSALES',
+  'close-crm': 'NICHE_CLOSE_CRM',
+  keap: 'NICHE_KEAP',
+  activecampaign: 'NICHE_ACTIVECAMPAIGN',
+  pipedrive: 'NICHE_PIPEDRIVE',
 };
 
 /**

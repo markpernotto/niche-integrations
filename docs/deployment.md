@@ -27,6 +27,10 @@ All services share the same GitHub repo — Railway rebuilds a service automatic
 | hubspot | `pnpm install --frozen-lockfile && pnpm build:hubspot` | `node packages/hubspot/dist/index.js` |
 | jobnimbus | `pnpm install --frozen-lockfile && pnpm build:jobnimbus` | `node packages/jobnimbus/dist/index.js` |
 | marketsharp | `pnpm install --frozen-lockfile && pnpm build:marketsharp` | `node packages/marketsharp/dist/index.js` |
+| close-crm | `pnpm install --frozen-lockfile && pnpm build:close-crm` | `node packages/close-crm/dist/index.js` |
+| keap | `pnpm install --frozen-lockfile && pnpm build:keap` | `node packages/keap/dist/index.js` |
+| activecampaign | `pnpm install --frozen-lockfile && pnpm build:activecampaign` | `node packages/activecampaign/dist/index.js` |
+| pipedrive | `pnpm install --frozen-lockfile && pnpm build:pipedrive` | `node packages/pipedrive/dist/index.js` |
 
 ---
 
@@ -101,6 +105,39 @@ NICHE_HUBSPOT_CLIENT_ID=
 NICHE_HUBSPOT_CLIENT_SECRET=
 HUBSPOT_ACCESS_TOKEN=
 HUBSPOT_CLIENT_SECRET=
+```
+
+### close-crm
+```
+NICHE_CLOSE_CRM_CLIENT_ID=
+NICHE_CLOSE_CRM_CLIENT_SECRET=
+CLOSE_CRM_API_KEY=              # From Close Settings → API Keys
+```
+
+### keap
+```
+NICHE_KEAP_CLIENT_ID=
+NICHE_KEAP_CLIENT_SECRET=
+KEAP_CLIENT_ID=
+KEAP_CLIENT_SECRET=
+KEAP_REDIRECT_URI=https://<keap-railway-url>/callback
+```
+
+### activecampaign
+```
+NICHE_ACTIVECAMPAIGN_CLIENT_ID=
+NICHE_ACTIVECAMPAIGN_CLIENT_SECRET=
+ACTIVECAMPAIGN_API_KEY=         # From Settings → Developer → API Key
+ACTIVECAMPAIGN_BASE_URL=        # From Settings → Developer → API URL (e.g. https://youraccountname.api-us1.com)
+```
+
+### pipedrive
+```
+NICHE_PIPEDRIVE_CLIENT_ID=
+NICHE_PIPEDRIVE_CLIENT_SECRET=
+PIPEDRIVE_CLIENT_ID=
+PIPEDRIVE_CLIENT_SECRET=
+PIPEDRIVE_REDIRECT_URI=https://<pipedrive-railway-url>/callback
 ```
 
 ---
