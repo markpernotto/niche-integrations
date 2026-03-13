@@ -13,6 +13,10 @@ Integrations built:
 - **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
 - **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
 - **Freshsales** — Node.js Express server (port 9006) — API key auth + REST API polling, confirmed working end-to-end
+- **Close CRM** — Node.js Express server (port 9008) — API key auth + REST API polling (needs account)
+- **Keap / Infusionsoft** — Node.js Express server (port 9009) — OAuth 2.0 + REST API polling (needs account)
+- **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling (needs account)
+- **Pipedrive** — Node.js Express server (port 9011) — OAuth 2.0 + REST API polling (needs account)
 
 All Node.js servers are deployed on **Railway** (one service per integration). See `docs/deployment.md` for the full Railway setup guide, env var reference, and post-deploy checklist.
 
@@ -321,14 +325,151 @@ packages/
 
 ---
 
+## Close CRM Integration
+
+**Status:** Code complete — needs developer account.
+
+### Setup (no OAuth — API key only)
+1. Request a free developer org: email `support@close.com`, subject "Developer sandbox request"
+2. In Close: **Settings → API Keys** → Generate Key
+3. Copy the API key → `CLOSE_CRM_API_KEY` in `.env`
+4. Create a Niche app with all scopes → `NICHE_CLOSE_CRM_CLIENT_ID` / `NICHE_CLOSE_CRM_CLIENT_SECRET` in `.env`
+5. Build and start: `pnpm build:close-crm && pnpm start:close-crm`
+6. Trigger sync: `curl -X POST http://localhost:9008/sync`
+
+### Routes
+- `GET /health` — status check
+- `POST /sync` — manual sync trigger (no auth flow needed)
+
+### Sync behavior
+- Syncs **Leads** (with embedded contact name/phone/email) from Close CRM
+- Close embeds contact details inside the lead object — no separate contact fetch needed
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`CLOSE_CRM_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Close CRM gotchas
+- **Auth is HTTP Basic** — API key as username, empty string as password. Header: `Authorization: Basic base64(<key>:)`
+- **Lead query syntax**: `query=updated > "2026-01-01T00:00:00Z"` — note quotes around the datetime
+- **Cursor-based pagination**: use `_cursor` param from `response.cursor` for next page; stop when `has_more` is false
+- **Contacts are embedded** in the lead response under `contacts[]` — use the first contact for name/phone/email
+- **`_fields` parameter** limits the response to only what we need: `id,display_name,contacts,date_updated,date_created`
+
+---
+
+## Keap / Infusionsoft Integration
+
+**Status:** Code complete — needs developer sandbox account.
+
+### One-time OAuth setup
+1. Sign up at `https://developer.infusionsoft.com` → Create App → select Sandbox
+2. Set Redirect URI: `http://localhost:9009/callback` (local) + `https://<railway-url>/callback` (production)
+3. Copy Client ID → `KEAP_CLIENT_ID` in `.env`
+4. Copy Client Secret → `KEAP_CLIENT_SECRET` in `.env`
+5. Create a Niche app with all scopes → `NICHE_KEAP_CLIENT_ID` / `NICHE_KEAP_CLIENT_SECRET` in `.env`
+6. Build and start: `pnpm build:keap && pnpm start:keap`
+7. Visit `http://localhost:9009/auth` in browser → approve in Keap
+8. Trigger initial sync: `curl -X POST http://localhost:9009/sync`
+
+### Routes
+- `GET /health` — status check
+- `GET /auth` — start OAuth flow (visit in browser)
+- `GET /callback` — OAuth redirect target
+- `POST /sync` — manual sync trigger
+
+### Sync behavior
+- Syncs **Contacts** from Keap
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`KEAP_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Keap gotchas
+- **Token endpoint**: `https://api.infusionsoft.com/token` — uses HTTP Basic auth (clientId:clientSecret)
+- **Scope is just `full`** — Keap uses a single all-access scope
+- **Contacts list endpoint**: `GET /crm/rest/v2/contacts?since=<ISO>&limit=200&order_by=last_updated&order_direction=DESCENDING`
+- **Pagination**: response includes `next` field (full URL) when more pages exist
+- **Phone/email arrays**: `phone_numbers[0].number` and `email_addresses[0].email` — first entry is primary
+
+---
+
+## ActiveCampaign Integration
+
+**Status:** Code complete — needs developer sandbox account.
+
+### Setup (no OAuth — API key only)
+1. Sign up for a free 2-year dev sandbox at `https://developers.activecampaign.com`
+2. In the account, go to **Settings → Developer**
+3. Copy the **API URL** (e.g. `https://youraccountname.api-us1.com`) → `ACTIVECAMPAIGN_BASE_URL` in `.env`
+4. Copy the **API Key** → `ACTIVECAMPAIGN_API_KEY` in `.env`
+5. Create a Niche app with all scopes → `NICHE_ACTIVECAMPAIGN_CLIENT_ID` / `NICHE_ACTIVECAMPAIGN_CLIENT_SECRET` in `.env`
+6. Build and start: `pnpm build:activecampaign && pnpm start:activecampaign`
+7. Trigger sync: `curl -X POST http://localhost:9010/sync`
+
+### Routes
+- `GET /health` — status check
+- `POST /sync` — manual sync trigger (no auth flow needed)
+
+### Sync behavior
+- Syncs **Contacts** from ActiveCampaign
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`ACTIVECAMPAIGN_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical ActiveCampaign gotchas
+- **Auth header is `Api-Token`** (not `Authorization`): `{ 'Api-Token': '<api_key>' }`
+- **Base URL includes the account subdomain** — it's in Settings → Developer, e.g. `https://yourname.api-us1.com`
+- **Filter by date**: `GET /api/3/contacts?updated_after=<ISO>&limit=100&offset=<n>`
+- **Pagination via `offset`** — increment by `limit` while `contacts.length === limit`
+- **Registration form category**: select "Deals & CRM" (contacts isn't a standalone option)
+
+---
+
+## Pipedrive Integration
+
+**Status:** Code complete — needs developer sandbox account.
+
+### One-time OAuth setup
+1. Sign up for developer sandbox at `https://pipedrive.com/developer-sandbox-sign-up`
+2. In the Developer Hub, create a new app
+3. Set Callback URL: `http://localhost:9011/callback` (local) + `https://<railway-url>/callback` (production)
+4. Copy Client ID → `PIPEDRIVE_CLIENT_ID` in `.env`
+5. Copy Client Secret → `PIPEDRIVE_CLIENT_SECRET` in `.env`
+6. Create a Niche app with all scopes → `NICHE_PIPEDRIVE_CLIENT_ID` / `NICHE_PIPEDRIVE_CLIENT_SECRET` in `.env`
+7. Build and start: `pnpm build:pipedrive && pnpm start:pipedrive`
+8. Visit `http://localhost:9011/auth` in browser → approve in Pipedrive
+9. Trigger initial sync: `curl -X POST http://localhost:9011/sync`
+
+### Routes
+- `GET /health` — status check
+- `GET /auth` — start OAuth flow (visit in browser)
+- `GET /callback` — OAuth redirect target
+- `POST /sync` — manual sync trigger
+
+### Sync behavior
+- Syncs **Persons** from Pipedrive (persons = contacts with phone + email)
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`PIPEDRIVE_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Pipedrive gotchas
+- **Token endpoint**: `https://oauth.pipedrive.com/oauth/token` — uses HTTP Basic auth (clientId:clientSecret)
+- **`api_domain` in token response** — use this as the base URL for all API calls (e.g. `yourcompany.pipedrive.com`). Don't hardcode `api.pipedrive.com`.
+- **Phone/email are arrays**: `phone: [{ value, primary }]` and `email: [{ value, primary }]` — pick the `primary: true` entry, fall back to first
+- **Pagination**: `additional_data.pagination.more_items_in_collection` signals more pages; use `start` offset param
+- **Sandbox inactivity**: sandbox closes after 6 months without a published marketplace app — keep it active
+
+---
+
 ## Pending Work
 
-### Buildable (no major account barriers)
+### Needs account / credentials only (code complete)
+- **Close CRM** — code in `packages/close-crm/`; email `support@close.com` for free dev org; API key from Settings → API Keys; `CLOSE_CRM_API_KEY` in .env
+- **Keap (Infusionsoft)** — code in `packages/keap/`; sign up at `developer.infusionsoft.com`; OAuth 2.0; `KEAP_CLIENT_ID` / `KEAP_CLIENT_SECRET` in .env
+- **ActiveCampaign** — code in `packages/activecampaign/`; sign up at `developers.activecampaign.com`; API key from Settings → Developer; `ACTIVECAMPAIGN_API_KEY` + `ACTIVECAMPAIGN_BASE_URL` in .env
+- **Pipedrive** — code in `packages/pipedrive/`; sign up at `pipedrive.com/developer-sandbox-sign-up`; OAuth 2.0; `PIPEDRIVE_CLIENT_ID` / `PIPEDRIVE_CLIENT_SECRET` in .env
+
+### Not yet built
 - **Microsoft Dynamics 365** — not started; HARD difficulty; free sandbox via Power Apps Developer Plan (`https://aka.ms/PowerAppsDevPlan`); OData v4 REST API, OAuth 2.0 client credentials (Entra ID), phone/email fully exposed on leads + contacts entities; polling pattern same as Jobber; port 9007
-- **Close CRM** — not started; MED difficulty; email support@close.com for a free dev org; OAuth 2.0, clean REST API, phone/email on contacts; port 9008
-- **Keap (Infusionsoft)** — not started; MED difficulty; free sandbox at `developer.infusionsoft.com`; OAuth 2.0, popular in home services/SMB; port 9009
-- **ActiveCampaign** — not started; MED difficulty; free 2-year dev sandbox at `developers.activecampaign.com`; API key auth, phone/email on contacts; port 9010
-- **Pipedrive** — not started; MED difficulty; developer sandbox (free, inactivity policy); OAuth 2.0, phone/email on persons; port 9011
 
 ### Blocked / Skipped
 - **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
@@ -353,9 +494,9 @@ pnpm test          # run all tests once (vitest run)
 pnpm test:watch    # watch mode (vitest)
 ```
 
-### What's tested (144 tests, 12 files)
+### What's tested (205 tests, 20 files)
 
-**Unit tests — transformers (116 tests, 6 files):** Pure function tests, no mocking, no network.
+**Unit tests — transformers (10 files):** Pure function tests, no mocking, no network.
 
 | File | Covered behaviors |
 |---|---|
@@ -365,10 +506,14 @@ pnpm test:watch    # watch mode (vitest)
 | `packages/freshsales/src/transformer.test.ts` | Contact + lead, display_name fallback, work_number fallback, company omission |
 | `packages/facebook-leads/src/transformer.test.ts` | first_name/firstname variants, full_name/name fallback, phone extraction, info label capitalization, field exclusion |
 | `packages/hubspot/src/transformer.test.ts` | Contact transform, deal transform with/without associated contact, mobilephone fallback |
+| `packages/activecampaign/src/transformer.test.ts` | firstName/lastName, phone normalization, email in info, Contact ID |
+| `packages/close-crm/src/transformer.test.ts` | Contact name from embedded contact, display_name fallback, phone/email from contact, Lead+Contact IDs |
+| `packages/keap/src/transformer.test.ts` | given/family name, phone from phone_numbers, email from email_addresses, company omission |
+| `packages/pipedrive/src/transformer.test.ts` | Person name, primary phone/email selection, fallback to first non-primary, org_name |
 
 **Phone normalization** is tested consistently across all integrations: 10-digit → `+1NNNN`, 11-digit starting with `1` → `+1NNNN`, formatted strings (parens/dashes) → normalized, international (UK etc.) → passed through as-is.
 
-**Integration tests — HTTP routes (28 tests, 6 files):** Supertest against Express app, NicheClient and platform API calls mocked.
+**Integration tests — HTTP routes (10 files):** Supertest against Express app, NicheClient and platform API calls mocked.
 
 | File | Covered behaviors |
 |---|---|
@@ -378,6 +523,10 @@ pnpm test:watch    # watch mode (vitest)
 | `packages/salesforce/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Salesforce |
 | `packages/zoho-crm/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Zoho |
 | `packages/freshsales/src/index.test.ts` | Health, POST /sync 500 when API key/domain not configured |
+| `packages/activecampaign/src/index.test.ts` | Health, POST /sync 500 when API key/base URL not configured |
+| `packages/close-crm/src/index.test.ts` | Health, POST /sync 500 when API key not configured |
+| `packages/keap/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth 500 when client ID not set |
+| `packages/pipedrive/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Pipedrive |
 
 **Mocking pattern for integration tests:** `vi.hoisted()` sets env vars before module load (prevents dotenv from leaking real credentials), `vi.mock('dotenv')` prevents `.env` file loading, `vi.mock('@niche-integrations/core')` mocks `NicheClient` as a class with spy methods.
 
@@ -393,11 +542,15 @@ No per-package config needed — the root `vitest.config.ts` picks them up autom
 
 ```bash
 # Build + start individual integrations
-pnpm build:jobber && pnpm start:jobber          # port 9003
-pnpm build:salesforce && pnpm start:salesforce  # port 9004
-pnpm build:zoho-crm && pnpm start:zoho-crm      # port 9005
-pnpm build:freshsales && pnpm start:freshsales  # port 9006
-pnpm build:hubspot && pnpm start:hubspot        # port 7777
+pnpm build:jobber && pnpm start:jobber                  # port 9003
+pnpm build:salesforce && pnpm start:salesforce          # port 9004
+pnpm build:zoho-crm && pnpm start:zoho-crm              # port 9005
+pnpm build:freshsales && pnpm start:freshsales          # port 9006
+pnpm build:close-crm && pnpm start:close-crm            # port 9008
+pnpm build:keap && pnpm start:keap                      # port 9009
+pnpm build:activecampaign && pnpm start:activecampaign  # port 9010
+pnpm build:pipedrive && pnpm start:pipedrive            # port 9011
+pnpm build:hubspot && pnpm start:hubspot                # port 7777
 
 # or all at once:
 pnpm start:all
