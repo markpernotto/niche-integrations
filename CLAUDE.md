@@ -11,6 +11,8 @@ Integrations built:
 - **HubSpot** — Node.js Express webhook server (port 7777) — webhook relay + polling (paused, someone else has this)
 - **Jobber** — Node.js Express server (port 9003) — OAuth 2.0 + GraphQL polling, confirmed working end-to-end
 - **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
+- **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
+- **Freshsales** — Node.js Express server (port 9006) — API key auth + REST API polling, confirmed working end-to-end
 
 ---
 
@@ -236,13 +238,95 @@ packages/
 
 ---
 
+## Zoho CRM Integration
+
+**Status:** Complete and confirmed working (`{"ok":true,"synced":20}`).
+
+### One-time OAuth setup
+1. Sign up for **Zoho CRM Developer Edition** (free, no expiry) at `https://www.zoho.com/crm/developer/developer-edition.html`
+2. Go to `https://api-console.zoho.com/` → **Add Client** → **Server Based Applications**
+3. Set Authorized Redirect URI: `http://localhost:9005/callback`
+4. Copy **Consumer Key** → `ZOHO_CLIENT_ID` in `.env`
+5. Copy **Consumer Secret** → `ZOHO_CLIENT_SECRET` in `.env`
+6. Create a Niche app with all scopes → `NICHE_ZOHO_CRM_CLIENT_ID` / `NICHE_ZOHO_CRM_CLIENT_SECRET` in `.env`
+7. Build and start: `pnpm build:zoho-crm && pnpm start:zoho-crm`
+8. Visit `http://localhost:9005/auth` in browser → approve in Zoho
+9. Trigger initial sync: `curl -X POST http://localhost:9005/sync`
+
+### Routes
+- `GET /health` — status check
+- `GET /auth` — start OAuth flow (visit in browser)
+- `GET /callback` — OAuth redirect target (handled automatically)
+- `POST /sync` — manual sync trigger
+
+### Sync behavior
+- Syncs both **Leads** and **Contacts** from Zoho CRM
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`ZOHO_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Zoho CRM gotchas
+- **Zoho returns 204 (no content) when search has zero results** — handle as empty list, not an error
+- **Token exchange and refresh use form-encoded body** (`application/x-www-form-urlencoded`)
+- **`access_type=offline` + `prompt=consent` required** in the auth URL to get a refresh token
+- **Zoho does not rotate refresh tokens** on access token refresh — preserve the original refresh token
+- **API data center matters**: US accounts use `accounts.zoho.com` / `www.zohoapis.com`; EU/IN/AU/JP use different domains. Code is hardcoded to US.
+- **Search API**: uses `GET /Leads/search?criteria=(Modified_Time:greater_than:<ISO>)` — note the `+00:00` timezone suffix format
+
+---
+
+## Freshsales Integration
+
+**Status:** Complete and confirmed working (`{"ok":true,"synced":11}`).
+
+### Setup (no OAuth — API key only)
+1. Sign up for **Freshsales free plan** at `https://www.freshworks.com/crm/signup/`
+2. Inside Freshsales CRM, click your **avatar (bottom-left)** → **Profile Settings** → scroll down to **Your API Key**
+   - **Do NOT use Admin Settings** — the API key must come from Profile Settings within the CRM product
+3. Copy the API key → `FRESHSALES_API_KEY` in `.env`
+4. Set `FRESHSALES_DOMAIN` to just the subdomain (e.g. `facetbuildllc` from `facetbuildllc.myfreshworks.com`)
+5. Create a Niche app with all scopes → `NICHE_FRESHSALES_CLIENT_ID` / `NICHE_FRESHSALES_CLIENT_SECRET` in `.env`
+6. Build and start: `pnpm build:freshsales && pnpm start:freshsales`
+7. Trigger sync: `curl -X POST http://localhost:9006/sync`
+
+### Routes
+- `GET /health` — status check
+- `POST /sync` — manual sync trigger (no auth flow needed)
+
+### Sync behavior
+- Syncs **Contacts** (and Leads if plan supports it) from Freshsales
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`FRESHSALES_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Freshsales gotchas
+- **Listing requires a view ID** — you cannot call `GET /contacts` directly; must use `GET /contacts/view/{view_id}`. The code auto-discovers the view ID by calling `GET /contacts/filters` first.
+- **Free plan does not include the Leads module** — `/leads` returns 403; handled gracefully (skipped with a warning)
+- **API key is per-user and per-product** — must be from Freshsales CRM Profile Settings, not from Freshdesk, Freshchat, Freshcaller, or Admin Settings
+- **Domain normalization**: code accepts the full URL, just the host, or just the subdomain — all are handled
+- **Sort descending** to efficiently stop pagination once records fall outside the lookback window
+
+---
+
 ## Pending Work
 
+### Buildable (no major account barriers)
+- **Microsoft Dynamics 365** — not started; HARD difficulty; free sandbox via Power Apps Developer Plan (`https://aka.ms/PowerAppsDevPlan`); OData v4 REST API, OAuth 2.0 client credentials (Entra ID), phone/email fully exposed on leads + contacts entities; polling pattern same as Jobber; port 9007
+- **Close CRM** — not started; MED difficulty; email support@close.com for a free dev org; OAuth 2.0, clean REST API, phone/email on contacts; port 9008
+- **Keap (Infusionsoft)** — not started; MED difficulty; free sandbox at `developer.infusionsoft.com`; OAuth 2.0, popular in home services/SMB; port 9009
+- **ActiveCampaign** — not started; MED difficulty; free 2-year dev sandbox at `developers.activecampaign.com`; API key auth, phone/email on contacts; port 9010
+- **Pipedrive** — not started; MED difficulty; developer sandbox (free, inactivity policy); OAuth 2.0, phone/email on persons; port 9011
+
+### Blocked / Skipped
 - **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
 - **MarketSharp** — code scaffolded (`packages/marketsharp/`), needs sales demo / account
 - **HubSpot** — paused (someone else has it); polling + deals code is in place if we revisit
-- **Housecall Pro** — not started; MED difficulty, similar pattern to Jobber
-- **ServiceTitan** — not started; apply to developer program at developer.servicetitan.io
+- **Housecall Pro** — skipped; requires MAX plan ($100/mo) for API access
+- **Angi (HomeAdvisor)** — skipped; requires active Angi contractor account + SPID + manual setup by Angi support; not a self-service developer integration
+- **Google Local Services Ads** — skipped; requires active LSA advertiser account + business verification; no sandbox
+- **CompanyCam** — skipped; API does not expose customer phone or email — cannot create valid Niche leads (phone is required); only exposes project photos and company data
+- **LeadPerfection** — skipped; no public REST API (inbound POST only, can't read leads out); no free sandbox; requires paid account + vendor cooperation; same situation as MarketSharp
+- **ServiceTitan** — skipped for now; apply to developer program at developer.servicetitan.io
 
 ---
 
@@ -252,6 +336,8 @@ packages/
 # Build + start individual integrations
 pnpm build:jobber && pnpm start:jobber          # port 9003
 pnpm build:salesforce && pnpm start:salesforce  # port 9004
+pnpm build:zoho-crm && pnpm start:zoho-crm      # port 9005
+pnpm build:freshsales && pnpm start:freshsales  # port 9006
 pnpm build:hubspot && pnpm start:hubspot        # port 7777
 
 # or all at once:

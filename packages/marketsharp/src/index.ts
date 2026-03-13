@@ -28,7 +28,7 @@ app.use(express.json());
 
 const nicheClient = new NicheClient(getNicheConfigForIntegration('marketsharp'));
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
-const PORT = parseInt(process.env.MARKETSHARP_PORT || '9001', 10);
+const PORT = parseInt(process.env.PORT || process.env.MARKETSHARP_PORT || '9001', 10);
 
 const msApiKey = process.env.MARKETSHARP_API_KEY || '';
 const msCompanyId = process.env.MARKETSHARP_COMPANY_ID || '';

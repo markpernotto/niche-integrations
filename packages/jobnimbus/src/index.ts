@@ -25,7 +25,7 @@ app.use(express.json());
 
 const nicheClient = new NicheClient(getNicheConfigForIntegration('jobnimbus'));
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
-const PORT = parseInt(process.env.JOBNIMBUS_PORT || '8888', 10);
+const PORT = parseInt(process.env.PORT || process.env.JOBNIMBUS_PORT || '8888', 10);
 
 // ---------------------------------------------------------------------------
 // In-memory dedup (jnid, 24-hour TTL)

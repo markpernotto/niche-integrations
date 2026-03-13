@@ -36,11 +36,11 @@ app.use(express.json());
 
 const nicheClient = new NicheClient(getNicheConfigForIntegration('salesforce'));
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
-const PORT = parseInt(process.env.SALESFORCE_PORT || '9004', 10);
+const PORT = parseInt(process.env.PORT || process.env.SALESFORCE_PORT || '9004', 10);
 
 const sfClientId = process.env.SALESFORCE_CLIENT_ID || '';
 const sfClientSecret = process.env.SALESFORCE_CLIENT_SECRET || '';
-const redirectUri = `http://localhost:${PORT}/callback`;
+const redirectUri = process.env.SALESFORCE_REDIRECT_URI || `http://localhost:${PORT}/callback`;
 
 const SF_API_VERSION = 'v59.0';
 const SYNC_LOOKBACK_HOURS = parseInt(process.env.SALESFORCE_SYNC_LOOKBACK_HOURS || '25', 10);

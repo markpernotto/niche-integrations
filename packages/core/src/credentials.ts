@@ -14,7 +14,9 @@ export type IntegrationName =
   | 'jobnimbus'
   | 'marketsharp'
   | 'jobber'
-  | 'salesforce';
+  | 'salesforce'
+  | 'zoho-crm'
+  | 'freshsales';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
@@ -24,6 +26,8 @@ const ENV_PREFIXES: Record<IntegrationName, string> = {
   marketsharp: 'NICHE_MARKETSHARP',
   jobber: 'NICHE_JOBBER',
   salesforce: 'NICHE_SALESFORCE',
+  'zoho-crm': 'NICHE_ZOHO_CRM',
+  freshsales: 'NICHE_FRESHSALES',
 };
 
 /**
