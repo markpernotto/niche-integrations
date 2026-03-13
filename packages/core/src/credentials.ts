@@ -7,12 +7,23 @@
 
 import type { NicheClientConfig } from './client';
 
-export type IntegrationName = 'wordpress' | 'facebook-leads' | 'hubspot';
+export type IntegrationName =
+  | 'wordpress'
+  | 'facebook-leads'
+  | 'hubspot'
+  | 'jobnimbus'
+  | 'marketsharp'
+  | 'acculynx'
+  | 'jobber';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
   'facebook-leads': 'NICHE_FACEBOOK_LEADS',
   hubspot: 'NICHE_HUBSPOT',
+  jobnimbus: 'NICHE_JOBNIMBUS',
+  marketsharp: 'NICHE_MARKETSHARP',
+  acculynx: 'NICHE_ACCULYNX',
+  jobber: 'NICHE_JOBBER',
 };
 
 /**

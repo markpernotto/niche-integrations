@@ -8,7 +8,8 @@ Goal: win the Niche Integration Competition (deadline March 30, 2026 — $1,000 
 Integrations built:
 - **WordPress** — PHP plugin, direct API calls from WP (no relay server needed)
 - **Facebook Lead Ads** — Node.js Express webhook server (port 6666)
-- **HubSpot** — Node.js Express webhook server (port 7777)
+- **HubSpot** — Node.js Express webhook server (port 7777) — webhook relay + polling (paused, someone else has this)
+- **Jobber** — Node.js Express server (port 9003) — OAuth 2.0 + GraphQL polling, confirmed working end-to-end
 
 ---
 
@@ -140,23 +141,74 @@ packages/
   facebook-leads/
     src/index.ts                     # Express webhook server, port 6666
   hubspot/
-    src/index.ts                     # Express webhook server, port 7777
+    src/index.ts                     # Express webhook server + polling, port 7777
+  jobber/
+    src/index.ts                     # Express server — OAuth flow + GraphQL polling, port 9003
+    src/auth.ts                      # Jobber OAuth 2.0 token management
+    src/transformer.ts               # JobberClient → Niche lead
+    src/types.ts                     # Jobber type definitions
+  jobnimbus/
+    src/index.ts                     # Webhook receiver, port 8888 (scaffolded, needs account)
+  marketsharp/
+    src/index.ts                     # Polling server, port 9001 (scaffolded, needs account)
+  acculynx/
+    src/index.ts                     # Webhook receiver, port 9002 (scaffolded, deprioritized)
   core/
     src/credentials.ts               # Shared OAuth credential helpers
     scripts/test-auth.js             # Manual API test script
 ```
 
+---
+
+## Jobber Integration
+
+**Status:** Complete and confirmed working (`{"ok":true,"synced":1}`).
+
+### One-time OAuth setup
+1. Create a Jobber developer account at [developer.getjobber.com](https://developer.getjobber.com) — **must be a different email** than your Jobber customer account
+2. Create an app — do **NOT** add a redirect URI (localhost is supported automatically and must not be listed)
+3. Request scope: `read_clients`
+4. Copy `Client ID` and `Client Secret` into `.env` as `JOBBER_CLIENT_ID` / `JOBBER_CLIENT_SECRET`
+5. Create a Niche app with all scopes checked → copy into `.env` as `NICHE_JOBBER_CLIENT_ID` / `NICHE_JOBBER_CLIENT_SECRET`
+6. Build and start the server (see commands below)
+7. Visit `http://localhost:9003/auth` in a browser → approve access in Jobber
+8. Trigger initial sync: `curl -X POST http://localhost:9003/sync`
+
+### Routes
+- `GET /health` — status check
+- `GET /auth` — start OAuth flow (visit in browser)
+- `GET /callback` — OAuth redirect target (handled automatically)
+- `POST /sync` — manual sync trigger
+
+### Sync behavior
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`JOBBER_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Jobber API gotchas
+- **Token endpoint uses query params**, not form body: `POST /oauth/token?grant_type=...&code=...` (not JSON/form body)
+- **`X-JOBBER-GRAPHQL-VERSION` header required** on all GraphQL requests (use `2023-11-15`)
+- **Date filter field is `after`/`before`**, not `gt`/`lt`: `{ updatedAt: { after: "..." } }`
+- **Do NOT add redirect URI in the Jobber dashboard** — localhost is automatic; adding it causes an error
+
+---
+
 ## Pending Work
 
-- **HubSpot** — integration needs to be tested and cleaned up (next session)
+- **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
+- **MarketSharp** — code scaffolded (`packages/marketsharp/`), needs sales demo / account
+- **HubSpot** — paused (someone else has it); polling + deals code is in place if we revisit
+- **Salesforce** — not started; free Developer Edition available, no external blockers
+- **ServiceTitan** — not started; apply to developer program at developer.servicetitan.io
 
 ---
 
 ## Running the Node.js integrations
 
 ```bash
-pnpm build:hubspot
-pnpm start:hubspot    # port 7777
+# Build + start individual integrations
+pnpm build:jobber && pnpm start:jobber    # port 9003
+pnpm build:hubspot && pnpm start:hubspot  # port 7777
 
 # or all at once:
 pnpm start:all

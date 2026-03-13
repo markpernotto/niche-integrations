@@ -40,3 +40,20 @@ export interface HubSpotContact {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface HubSpotDealProperties {
+  dealname?: string;
+  amount?: string;
+  dealstage?: string;
+  pipeline?: string;
+  closedate?: string;
+  hs_deal_stage_label?: string;
+  [key: string]: string | undefined;
+}
+
+export interface HubSpotDeal {
+  id: string;
+  properties: HubSpotDealProperties;
+  createdAt: string;
+  updatedAt: string;
+}
