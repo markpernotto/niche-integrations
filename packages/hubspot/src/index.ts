@@ -45,7 +45,7 @@ const nicheClient = new NicheClient(getNicheConfigForIntegration('hubspot'));
 const hubspotClientSecret = process.env.HUBSPOT_CLIENT_SECRET || '';
 const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN || '';
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
-const PORT = parseInt(process.env.HUBSPOT_PORT || '7777', 10);
+const PORT = parseInt(process.env.PORT || process.env.HUBSPOT_PORT || '7777', 10);
 
 // How far back to look on each poll
 const POLL_LOOKBACK_MS = parseInt(process.env.HUBSPOT_LOOKBACK_MS || String(25 * 60 * 60 * 1000), 10);

@@ -37,11 +37,11 @@ app.use(express.json());
 
 const nicheClient = new NicheClient(getNicheConfigForIntegration('jobber'));
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
-const PORT = parseInt(process.env.JOBBER_PORT || '9003', 10);
+const PORT = parseInt(process.env.PORT || process.env.JOBBER_PORT || '9003', 10);
 
 const jobberClientId = process.env.JOBBER_CLIENT_ID || '';
 const jobberClientSecret = process.env.JOBBER_CLIENT_SECRET || '';
-const redirectUri = `http://localhost:${PORT}/callback`;
+const redirectUri = process.env.JOBBER_REDIRECT_URI || `http://localhost:${PORT}/callback`;
 
 const JOBBER_GRAPHQL_URL = 'https://api.getjobber.com/api/graphql';
 

@@ -13,8 +13,8 @@ export type IntegrationName =
   | 'hubspot'
   | 'jobnimbus'
   | 'marketsharp'
-  | 'acculynx'
-  | 'jobber';
+  | 'jobber'
+  | 'salesforce';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
@@ -22,8 +22,8 @@ const ENV_PREFIXES: Record<IntegrationName, string> = {
   hubspot: 'NICHE_HUBSPOT',
   jobnimbus: 'NICHE_JOBNIMBUS',
   marketsharp: 'NICHE_MARKETSHARP',
-  acculynx: 'NICHE_ACCULYNX',
   jobber: 'NICHE_JOBBER',
+  salesforce: 'NICHE_SALESFORCE',
 };
 
 /**

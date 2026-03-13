@@ -10,6 +10,7 @@ Integrations built:
 - **Facebook Lead Ads** — Node.js Express webhook server (port 6666)
 - **HubSpot** — Node.js Express webhook server (port 7777) — webhook relay + polling (paused, someone else has this)
 - **Jobber** — Node.js Express server (port 9003) — OAuth 2.0 + GraphQL polling, confirmed working end-to-end
+- **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
 
 ---
 
@@ -151,8 +152,11 @@ packages/
     src/index.ts                     # Webhook receiver, port 8888 (scaffolded, needs account)
   marketsharp/
     src/index.ts                     # Polling server, port 9001 (scaffolded, needs account)
-  acculynx/
-    src/index.ts                     # Webhook receiver, port 9002 (scaffolded, deprioritized)
+  salesforce/
+    src/index.ts                     # Express server — OAuth 2.0 + PKCE + REST API polling, port 9004
+    src/auth.ts                      # Salesforce OAuth 2.0 + PKCE token management
+    src/transformer.ts               # SalesforceLead/Contact → Niche lead
+    src/types.ts                     # Salesforce type definitions
   core/
     src/credentials.ts               # Shared OAuth credential helpers
     scripts/test-auth.js             # Manual API test script
@@ -193,12 +197,51 @@ packages/
 
 ---
 
+## Salesforce Integration
+
+**Status:** Complete and confirmed working (`{"ok":true,"synced":1}`).
+
+### One-time OAuth setup
+1. In Salesforce Setup → **New External Client App** (NOT New Lightning App)
+   - Enable OAuth Settings
+   - Callback URL: `http://localhost:9004/callback`
+   - Scopes: `Manage user data via APIs (api)` + `Perform requests at any time (refresh_token, offline_access)`
+2. Copy **Consumer Key** → `SALESFORCE_CLIENT_ID` in `.env`
+3. Copy **Consumer Secret** → `SALESFORCE_CLIENT_SECRET` in `.env`
+4. Create a Niche app with all scopes checked → `NICHE_SALESFORCE_CLIENT_ID` / `NICHE_SALESFORCE_CLIENT_SECRET` in `.env`
+5. Build and start: `pnpm build:salesforce && pnpm start:salesforce`
+6. Visit `http://localhost:9004/auth` in browser → approve in Salesforce
+7. Trigger initial sync: `curl -X POST http://localhost:9004/sync`
+
+### Routes
+- `GET /health` — status check
+- `GET /auth` — start OAuth flow (visit in browser)
+- `GET /callback` — OAuth redirect target (handled automatically)
+- `POST /sync` — manual sync trigger
+
+### Sync behavior
+- Syncs both **Leads** and **Contacts** from Salesforce
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`SALESFORCE_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL
+
+### Critical Salesforce gotchas
+- **Use "New External Client App"**, not "New Connected App" or "New Lightning App" — External Client Apps are the modern equivalent in Salesforce Lightning UI
+- **PKCE is required** for External Client Apps — our `auth.ts` generates `code_verifier`/`code_challenge` automatically using `S256` method. Without PKCE you get `error=invalid_request&error_description=missing%20required%20code%20challenge`
+- **Token exchange uses form-encoded body** (`application/x-www-form-urlencoded`), not JSON
+- **`instance_url` in token response** is the base URL for all REST API calls — don't hardcode the Salesforce domain
+- **SOQL datetime filter** uses ISO 8601 format directly without quotes: `WHERE LastModifiedDate > 2026-03-12T00:00:00.000Z`
+- **Salesforce reuses refresh tokens** — don't replace the refresh token on each refresh, only the access token changes
+- After creating a test lead, **edit it** (bump `LastModifiedDate`) if dedup is blocking it on retry
+
+---
+
 ## Pending Work
 
 - **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
 - **MarketSharp** — code scaffolded (`packages/marketsharp/`), needs sales demo / account
 - **HubSpot** — paused (someone else has it); polling + deals code is in place if we revisit
-- **Salesforce** — not started; free Developer Edition available, no external blockers
+- **Housecall Pro** — not started; MED difficulty, similar pattern to Jobber
 - **ServiceTitan** — not started; apply to developer program at developer.servicetitan.io
 
 ---
@@ -207,8 +250,9 @@ packages/
 
 ```bash
 # Build + start individual integrations
-pnpm build:jobber && pnpm start:jobber    # port 9003
-pnpm build:hubspot && pnpm start:hubspot  # port 7777
+pnpm build:jobber && pnpm start:jobber          # port 9003
+pnpm build:salesforce && pnpm start:salesforce  # port 9004
+pnpm build:hubspot && pnpm start:hubspot        # port 7777
 
 # or all at once:
 pnpm start:all
