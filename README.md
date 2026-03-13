@@ -1,79 +1,154 @@
-# Niche Integration Competition
+# Niche Partner API — Integration Suite
 
-This monorepo contains integrations for the [Niche Integration Competition](https://app.nicheandleads.com/competition).
+A monorepo of integrations for the [Niche Partner API](https://app.nicheandleads.com), built for the Niche Integration Competition (deadline: March 30, 2026 — $1,000 per qualifying integration).
 
-## Overview
+---
 
-Building 5 integrations to connect Niche with external platforms:
-- WordPress (EASY)
-- Thumbtack (EASY) - with alternatives: Yelp, Google LSA, Angi
-- HubSpot (MEDIUM)
-- Facebook Lead Ads (MEDIUM)
-- Zapier (MEDIUM)
+## Integrations
 
-## Setup
+| Integration | Type | Auth | Status |
+|---|---|---|---|
+| **WordPress** | PHP plugin | OAuth2 client credentials | Complete |
+| **Facebook Lead Ads** | Webhook receiver | App secret verification | Complete |
+| **Jobber** | Polling sync | OAuth 2.0 (user) | Complete |
+| **Salesforce** | Polling sync | OAuth 2.0 + PKCE | Complete |
+| **Zoho CRM** | Polling sync | OAuth 2.0 (user) | Complete |
+| **Freshsales** | Polling sync | API key | Complete |
+| **HubSpot** | Webhook + polling | Access token | In progress |
+| **JobNimbus** | Webhook receiver | API key | Scaffolded |
+| **MarketSharp** | Polling sync | API key | Scaffolded |
 
-### Prerequisites
+All Node.js servers are deployed on **Railway** (one service per integration). See [docs/deployment.md](docs/deployment.md) for the full setup guide.
 
-- Node.js 18+
-- pnpm 8+
+---
 
-### Installation
+## Architecture
 
-```bash
-# Install dependencies for all packages
-pnpm install
+**WordPress** is a standalone PHP plugin — no server required. Users install it directly into their WordPress site via WP Admin.
 
-# Build all packages
-pnpm build
+All other integrations are **Node.js Express servers** that:
+1. Receive webhook events or poll the source platform on a schedule
+2. Transform contacts/leads into the Niche lead schema (`name`, `phone`, `info`, `source`)
+3. POST to the Niche Partner API: `POST /api/partner/v1/businesses/{businessId}/leads`
 
-# Run tests
-pnpm test
+Each integration authenticates with the Niche API using **OAuth2 client credentials** (separate Niche app per integration).
+
+---
+
+## Niche Lead Schema
+
+```typescript
+{
+  name: string,    // required — contact full name
+  phone: string,   // required — digits only
+  info: string,    // email, message, and other details concatenated
+  source: string,  // "WORDPRESS" | "FACEBOOK_LEADS" | "JOBBER" | etc.
+}
 ```
 
-### Environment Variables
+Email goes in `info`, not a top-level field. Do not send empty string fields — the API returns 500.
 
-Copy `.env.example` to `.env` and fill in your Niche Partner API credentials:
+---
+
+## Prerequisites
+
+- Node.js 18+
+- pnpm 8+ (`npm install -g pnpm`)
+
+## Installation
+
+```bash
+pnpm install
+```
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in credentials for the integrations you want to run:
 
 ```bash
 cp .env.example .env
 ```
 
-Get your credentials from the [competition registration page](https://app.nicheandleads.com/competition).
+See [docs/deployment.md](docs/deployment.md) for the full env var reference per integration.
+
+---
+
+## Running Locally
+
+```bash
+# Build + start individual integrations
+pnpm build:jobber && pnpm start:jobber          # http://localhost:9003
+pnpm build:salesforce && pnpm start:salesforce  # http://localhost:9004
+pnpm build:zoho-crm && pnpm start:zoho-crm      # http://localhost:9005
+pnpm build:freshsales && pnpm start:freshsales  # http://localhost:9006
+pnpm build:facebook-leads && pnpm start:facebook-leads  # http://localhost:6666
+pnpm build:hubspot && pnpm start:hubspot        # http://localhost:7777
+
+# Build + start all
+pnpm build && pnpm start:all
+```
+
+Every server exposes:
+- `GET /health` — returns `{"status":"ok",...}` with service config summary
+- `POST /sync` — manual sync trigger (polling integrations)
+- `GET /auth` — start OAuth flow in browser (OAuth integrations)
+
+---
 
 ## Project Structure
 
 ```
-niche-integrations/
-├── packages/
-│   ├── core/           # Shared Niche API client
-│   ├── wordpress/      # WordPress integration
-│   ├── thumbtack/      # Thumbtack integration
-│   ├── hubspot/        # HubSpot integration
-│   ├── facebook-leads/ # Facebook Lead Ads integration
-│   └── zapier/         # Zapier app
-├── package.json
-└── tsconfig.json
+docs/
+  deployment.md          # Railway setup, env vars, post-deploy checklist
+packages/
+  core/                  # Shared Niche API client + per-integration credential loading
+  wordpress/             # PHP plugin — installs directly into WordPress
+  facebook-leads/        # Webhook server for Facebook/Instagram Lead Ads
+  hubspot/               # Webhook + polling sync for HubSpot contacts
+  jobber/                # OAuth + GraphQL polling sync for Jobber clients
+  salesforce/            # OAuth + PKCE + REST polling for Salesforce leads/contacts
+  zoho-crm/              # OAuth + REST polling for Zoho CRM leads/contacts
+  freshsales/            # API key + REST polling for Freshsales contacts
+  jobnimbus/             # Webhook receiver for JobNimbus (scaffolded)
+  marketsharp/           # Polling sync for MarketSharp (scaffolded)
 ```
 
-## Development
+---
 
-Each package can be developed independently:
+## Testing
 
 ```bash
-# Work on a specific package
-cd packages/core
-pnpm build
-pnpm test
+pnpm test         # run all tests once
+pnpm test:watch   # watch mode
 ```
 
-## Competition Timeline
+Tests use [Vitest](https://vitest.dev) and run from the repo root via [vitest.config.ts](vitest.config.ts).
 
-- **Starts**: February 10, 2026
+### Coverage
+
+| Package | Test file | What's tested |
+|---|---|---|
+| jobber | [transformer.test.ts](packages/jobber/src/transformer.test.ts) | Name building, phone normalization, info block |
+| salesforce | [transformer.test.ts](packages/salesforce/src/transformer.test.ts) | Lead + contact transforms, mobile fallback |
+| zoho-crm | [transformer.test.ts](packages/zoho-crm/src/transformer.test.ts) | Lead + contact transforms, mobile fallback |
+| freshsales | [transformer.test.ts](packages/freshsales/src/transformer.test.ts) | Contact + lead, display_name fallback, work_number fallback |
+| facebook-leads | [transformer.test.ts](packages/facebook-leads/src/transformer.test.ts) | Field extraction, name variants, info label formatting |
+| hubspot | [transformer.test.ts](packages/hubspot/src/transformer.test.ts) | Contact transform, deal transform with/without associated contact |
+
+All transformers are tested for: correct `source` value, name assembly, phone normalization (10-digit → E.164, 11-digit starting with 1 → E.164, formatted strings, international pass-through), field fallbacks, and `info` block content.
+
+---
+
+## Deployment
+
+All Node.js services are deployed to Railway with auto-deploy on push to `main`.
+
+Full setup instructions: [docs/deployment.md](docs/deployment.md)
+
+---
+
+## Competition
+
 - **Deadline**: March 30, 2026
-- **Prize**: $1,000 per qualifying integration + bonus prizes
-
-## Documentation
-
-- [Niche Partner API Docs](https://docs.getniche.ai/niche-partner-api)
-- [Competition Page](https://app.nicheandleads.com/competition)
+- **Prize**: $1,000 per qualifying integration
+- **API Docs**: [Niche Partner API](https://app.nicheandleads.com/api/partner/v1/)

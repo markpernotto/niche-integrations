@@ -14,6 +14,8 @@ Integrations built:
 - **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
 - **Freshsales** — Node.js Express server (port 9006) — API key auth + REST API polling, confirmed working end-to-end
 
+All Node.js servers are deployed on **Railway** (one service per integration). See `docs/deployment.md` for the full Railway setup guide, env var reference, and post-deploy checklist.
+
 ---
 
 ## Niche API — Critical Facts
@@ -138,6 +140,8 @@ The `FACEBOOK_ACCESS_TOKEN` in `.env` (used to fetch lead data from the Graph AP
 ## Repo Structure
 
 ```
+docs/
+  deployment.md                      # Railway setup, env vars, post-deploy checklist
 packages/
   wordpress/
     plugin/niche-lead-capture.php   # WP plugin — pure PHP, no server needed
@@ -159,8 +163,17 @@ packages/
     src/auth.ts                      # Salesforce OAuth 2.0 + PKCE token management
     src/transformer.ts               # SalesforceLead/Contact → Niche lead
     src/types.ts                     # Salesforce type definitions
+  zoho-crm/
+    src/index.ts                     # Express server — OAuth 2.0 + REST API polling, port 9005
+    src/auth.ts                      # Zoho OAuth 2.0 token management
+    src/transformer.ts               # ZohoLead/Contact → Niche lead
+    src/types.ts                     # Zoho type definitions
+  freshsales/
+    src/index.ts                     # Express server — API key auth + REST API polling, port 9006
+    src/transformer.ts               # FreshsalesContact → Niche lead
+    src/types.ts                     # Freshsales type definitions
   core/
-    src/credentials.ts               # Shared OAuth credential helpers
+    src/credentials.ts               # Shared OAuth credential helpers (per-integration env prefixes)
     scripts/test-auth.js             # Manual API test script
 ```
 
@@ -172,7 +185,7 @@ packages/
 
 ### One-time OAuth setup
 1. Create a Jobber developer account at [developer.getjobber.com](https://developer.getjobber.com) — **must be a different email** than your Jobber customer account
-2. Create an app — do **NOT** add a redirect URI (localhost is supported automatically and must not be listed)
+2. Create an app — do **NOT** add a redirect URI for local dev (localhost is supported automatically and must not be listed). For Railway, add `https://<jobber-railway-url>/callback` as the redirect URI and set `JOBBER_REDIRECT_URI` in Railway env vars.
 3. Request scope: `read_clients`
 4. Copy `Client ID` and `Client Secret` into `.env` as `JOBBER_CLIENT_ID` / `JOBBER_CLIENT_SECRET`
 5. Create a Niche app with all scopes checked → copy into `.env` as `NICHE_JOBBER_CLIENT_ID` / `NICHE_JOBBER_CLIENT_SECRET`
@@ -206,7 +219,7 @@ packages/
 ### One-time OAuth setup
 1. In Salesforce Setup → **New External Client App** (NOT New Lightning App)
    - Enable OAuth Settings
-   - Callback URL: `http://localhost:9004/callback`
+   - Callback URLs: `http://localhost:9004/callback` (local) + `https://<salesforce-railway-url>/callback` (production). Set `SALESFORCE_REDIRECT_URI` in Railway env vars to the production URL.
    - Scopes: `Manage user data via APIs (api)` + `Perform requests at any time (refresh_token, offline_access)`
 2. Copy **Consumer Key** → `SALESFORCE_CLIENT_ID` in `.env`
 3. Copy **Consumer Secret** → `SALESFORCE_CLIENT_SECRET` in `.env`
@@ -245,7 +258,7 @@ packages/
 ### One-time OAuth setup
 1. Sign up for **Zoho CRM Developer Edition** (free, no expiry) at `https://www.zoho.com/crm/developer/developer-edition.html`
 2. Go to `https://api-console.zoho.com/` → **Add Client** → **Server Based Applications**
-3. Set Authorized Redirect URI: `http://localhost:9005/callback`
+3. Set Authorized Redirect URIs: `http://localhost:9005/callback` (local) + `https://<zoho-railway-url>/callback` (production). Set `ZOHO_REDIRECT_URI` in Railway env vars to the production URL.
 4. Copy **Consumer Key** → `ZOHO_CLIENT_ID` in `.env`
 5. Copy **Consumer Secret** → `ZOHO_CLIENT_SECRET` in `.env`
 6. Create a Niche app with all scopes → `NICHE_ZOHO_CRM_CLIENT_ID` / `NICHE_ZOHO_CRM_CLIENT_SECRET` in `.env`
@@ -327,6 +340,37 @@ packages/
 - **CompanyCam** — skipped; API does not expose customer phone or email — cannot create valid Niche leads (phone is required); only exposes project photos and company data
 - **LeadPerfection** — skipped; no public REST API (inbound POST only, can't read leads out); no free sandbox; requires paid account + vendor cooperation; same situation as MarketSharp
 - **ServiceTitan** — skipped for now; apply to developer program at developer.servicetitan.io
+
+---
+
+## Testing
+
+**Test runner:** Vitest (installed at workspace root via `pnpm add -D vitest -w`)
+**Config:** `vitest.config.ts` at repo root — resolves `@niche-integrations/core` to `packages/core/src/index.ts` so tests don't require a build step. Includes all `packages/*/src/**/*.test.ts` files.
+
+```bash
+pnpm test          # run all tests once (vitest run)
+pnpm test:watch    # watch mode (vitest)
+```
+
+### What's tested (116 tests, 6 files)
+
+All transformer functions are unit-tested with no mocking and no network calls:
+
+| File | Covered behaviors |
+|---|---|
+| `packages/jobber/src/transformer.test.ts` | Name from first/last/company, phone primary/fallback/formatting, info fields |
+| `packages/salesforce/src/transformer.test.ts` | Lead + contact transforms, MobilePhone fallback, optional field omission |
+| `packages/zoho-crm/src/transformer.test.ts` | Lead + contact transforms, Mobile fallback |
+| `packages/freshsales/src/transformer.test.ts` | Contact + lead, display_name fallback, work_number fallback, company omission |
+| `packages/facebook-leads/src/transformer.test.ts` | first_name/firstname variants, full_name/name fallback, phone extraction, info label capitalization, field exclusion |
+| `packages/hubspot/src/transformer.test.ts` | Contact transform, deal transform with/without associated contact, mobilephone fallback |
+
+**Phone normalization** is tested consistently across all integrations: 10-digit → `+1NNNN`, 11-digit starting with `1` → `+1NNNN`, formatted strings (parens/dashes) → normalized, international (UK etc.) → passed through as-is.
+
+### Adding new tests
+
+Test files live alongside source: `packages/<name>/src/transformer.test.ts`. No per-package config needed — the root `vitest.config.ts` picks them up automatically.
 
 ---
 
