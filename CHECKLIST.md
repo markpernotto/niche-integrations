@@ -121,10 +121,10 @@ These are confirmed working locally. Each needs a Railway service + production O
 - **Type:** API key auth + REST API polling
 - **Code:** `packages/close-crm/`
 - **Remaining:**
-  - [ ] Email `support@close.com` requesting a free developer org
-  - [ ] In Close: Settings → API Keys → generate key → `CLOSE_CRM_API_KEY` in .env
-  - [ ] Create Niche app → `NICHE_CLOSE_CRM_CLIENT_ID` / `_CLIENT_SECRET`
-  - [ ] `pnpm build:close-crm && pnpm start:close-crm` → `POST /sync` → verify in Niche
+  - [x] In Close: Settings → API Keys → generate key → `CLOSE_CRM_API_KEY` in .env
+  - [x] Create Niche app → `NICHE_CLOSE_CRM_CLIENT_ID` / `_CLIENT_SECRET`
+  - [x] `pnpm build:close-crm && pnpm start:close-crm` → `POST /sync` → local test passed
+  - [ ] Verify lead appears in Niche dashboard
   - [ ] Deploy to Railway → verify production sync
   - [ ] **Submit to competition**
 
@@ -144,11 +144,9 @@ These are confirmed working locally. Each needs a Railway service + production O
 - **Type:** API key auth + REST API polling
 - **Code:** `packages/activecampaign/`
 - **Remaining:**
-  - [ ] Sign up for free 2-year dev sandbox at `https://developers.activecampaign.com`
-  - [ ] Settings → Developer → copy API Key + API URL
-  - [ ] `ACTIVECAMPAIGN_API_KEY` + `ACTIVECAMPAIGN_BASE_URL` in .env
-  - [ ] Create Niche app → `NICHE_ACTIVECAMPAIGN_CLIENT_ID` / `_CLIENT_SECRET`
-  - [ ] `pnpm build:activecampaign && pnpm start:activecampaign` → `POST /sync` → verify
+  - [x] Settings → Developer → copy API Key + API URL in .env
+  - [x] Create Niche app → `NICHE_ACTIVECAMPAIGN_CLIENT_ID` / `_CLIENT_SECRET`
+  - [x] `pnpm build:activecampaign && pnpm start:activecampaign` → `POST /sync` → confirmed working
   - [ ] Deploy to Railway → verify production sync
   - [ ] **Submit to competition**
 
@@ -205,16 +203,16 @@ These are confirmed working locally. Each needs a Railway service + production O
 | 4 | Salesforce | ✅ | ✅ | ✅ Online | ⬜ |
 | 5 | Zoho CRM | ✅ | ✅ | ✅ Online | ⬜ |
 | 6 | Freshsales | ✅ | ✅ | ✅ Online | ⬜ |
-| 7 | Close CRM | ✅ | ⬜ | ⬜ | ⬜ |
+| 7 | Close CRM | ✅ | ✅ | ⬜ | ⬜ |
 | 8 | Keap | ✅ | ⬜ | ⬜ | ⬜ |
-| 9 | ActiveCampaign | ✅ | ⬜ | ⬜ | ⬜ |
+| 9 | ActiveCampaign | ✅ | ✅ | ⬜ | ⬜ |
 | 10 | Pipedrive | ✅ | ⬜ | ⬜ | ⬜ |
 | 11 | Microsoft Dynamics 365 | ⬜ | ⬜ | ⬜ | ⬜ |
 | — | HubSpot | ✅ (partial) | ⬜ | ⬜ | 🚫 (someone else) |
 | — | JobNimbus | 🚧 | ⬜ | ⬜ | ⬜ (blocked) |
 
 **Potential max payout: $11,000** (if all 11 qualify)
-**Code written: 10 of 11** — 5 Railway-verified, 4 need account signup + test, 1 not started (Dynamics)
+**Code written: 10 of 11** — 5 Railway-verified, Close CRM + ActiveCampaign locally tested, Keap + Pipedrive need accounts, 1 not started (Dynamics)
 
 ---
 
