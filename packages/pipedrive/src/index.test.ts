@@ -8,8 +8,7 @@ import request from 'supertest';
 vi.hoisted(() => {
   process.env.PORT = '0';
   process.env.NICHE_BUSINESS_ID = 'biz-test-pipedrive';
-  process.env.PIPEDRIVE_CLIENT_ID = 'pd-client-id';
-  process.env.PIPEDRIVE_CLIENT_SECRET = 'pd-client-secret';
+  // No PIPEDRIVE_API_TOKEN set — so isConfigured returns false
 });
 
 vi.mock('dotenv', () => ({ config: vi.fn() }));
@@ -21,15 +20,8 @@ vi.mock('@niche-integrations/core', () => ({
   getNicheConfigForIntegration: () => ({}),
 }));
 
-// loadTokens returns null — /sync must return 401
 vi.mock('./auth', () => ({
-  buildAuthUrl: vi.fn(
-    (clientId: string, redirectUri: string) =>
-      `https://oauth.pipedrive.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}`
-  ),
-  exchangeCode: vi.fn(),
-  getValidAccessToken: vi.fn(),
-  loadTokens: vi.fn(() => null),
+  isConfigured: vi.fn(() => false),
 }));
 
 import app from './index';
@@ -43,30 +35,17 @@ describe('pipedrive server', () => {
       expect(res.body.service).toBe('pipedrive-sync');
     });
 
-    it('reports authenticated: false when no tokens', async () => {
+    it('reports configured: false when API token not set', async () => {
       const res = await request(app).get('/health');
-      expect(res.body.authenticated).toBe(false);
-    });
-
-    it('reports configured: true when client ID and secret set', async () => {
-      const res = await request(app).get('/health');
-      expect(res.body.configured).toBe(true);
-    });
-  });
-
-  describe('GET /auth', () => {
-    it('redirects to Pipedrive OAuth', async () => {
-      const res = await request(app).get('/auth').redirects(0);
-      expect(res.status).toBe(302);
-      expect(res.headers.location).toContain('oauth.pipedrive.com');
+      expect(res.body.configured).toBe(false);
     });
   });
 
   describe('POST /sync', () => {
-    it('returns 401 when not authenticated', async () => {
+    it('returns 500 when API token not configured', async () => {
       const res = await request(app).post('/sync');
-      expect(res.status).toBe(401);
-      expect(res.body.error).toMatch(/Not authenticated/);
+      expect(res.status).toBe(500);
+      expect(res.body.error).toMatch(/PIPEDRIVE_API_TOKEN/);
     });
   });
 });

@@ -5,16 +5,14 @@
  *   - Nightly: runs automatically at midnight (default lookback: 25 hours)
  *   - Manual:  POST /sync to trigger immediately
  *
- * OAuth setup (one-time):
- *   1. Create a developer sandbox at https://developer.infusionsoft.com
- *      (sign up → Create App → choose "Sandbox" environment)
- *   2. Set Redirect URI: http://localhost:9009/callback (local) + https://<railway-url>/callback (prod)
- *   3. Copy Client ID → KEAP_CLIENT_ID in .env
- *   4. Copy Client Secret → KEAP_CLIENT_SECRET in .env
- *   5. Create a Niche app with all scopes → NICHE_KEAP_CLIENT_ID / _CLIENT_SECRET in .env
- *   6. Build and start: pnpm build:keap && pnpm start:keap
- *   7. Visit http://localhost:9009/auth in browser → approve in Keap
- *   8. Trigger initial sync: POST http://localhost:9009/sync
+ * Setup (one-time):
+ *   1. Go to https://developer.infusionsoft.com → your app → API Keys → Add Key
+ *   2. Copy Client ID → KEAP_CLIENT_ID in .env
+ *   3. Copy Client Secret → KEAP_CLIENT_SECRET in .env
+ *      (No redirect URI or browser OAuth needed — service account auth)
+ *   4. Create a Niche app with all scopes → NICHE_KEAP_CLIENT_ID / _CLIENT_SECRET in .env
+ *   5. Build and start: pnpm build:keap && pnpm start:keap
+ *   6. Trigger sync: POST http://localhost:9009/sync
  */
 
 import path from 'path';
@@ -27,7 +25,7 @@ import axios from 'axios';
 import { NicheClient, getNicheConfigForIntegration } from '@niche-integrations/core';
 import type { KeapContact, KeapListResponse } from './types';
 import { transformContactToNiche } from './transformer';
-import { buildAuthUrl, exchangeCode, getValidAccessToken, loadTokens } from './auth';
+import { getValidAccessToken, isConfigured } from './auth';
 
 const app = express();
 app.use(express.json());
@@ -38,7 +36,6 @@ const PORT = parseInt(process.env.PORT || process.env.KEAP_PORT || '9009', 10);
 
 const clientId = process.env.KEAP_CLIENT_ID || '';
 const clientSecret = process.env.KEAP_CLIENT_SECRET || '';
-const redirectUri = process.env.KEAP_REDIRECT_URI || `http://localhost:${PORT}/callback`;
 
 const KEAP_API_BASE = 'https://api.infusionsoft.com/crm/rest/v2';
 const SYNC_LOOKBACK_HOURS = parseInt(process.env.KEAP_SYNC_LOOKBACK_HOURS || '25', 10);
@@ -90,7 +87,6 @@ async function fetchContactsSince(sinceIso: string): Promise<KeapContact[]> {
     all.push(...contacts);
 
     if (!res.data.next) break;
-    // next is a full URL — extract page_token if present, or just break (use offset pagination)
     try {
       const url = new URL(res.data.next);
       nextPageToken = url.searchParams.get('page_token') ?? undefined;
@@ -168,40 +164,13 @@ app.get('/health', (_req: Request, res: Response) => {
     status: 'ok',
     service: 'keap-sync',
     businessId: nicheBusinessId || '(not set)',
-    authenticated: !!loadTokens(),
-    configured: !!(clientId && clientSecret),
+    configured: isConfigured(clientId, clientSecret),
   });
 });
 
-app.get('/auth', (_req: Request, res: Response) => {
-  if (!clientId) {
-    res.status(500).send('KEAP_CLIENT_ID not set');
-    return;
-  }
-  res.redirect(buildAuthUrl(clientId, redirectUri));
-});
-
-app.get('/callback', async (req: Request, res: Response) => {
-  const code = req.query.code as string | undefined;
-  if (!code) {
-    res.status(400).send('Missing code parameter');
-    return;
-  }
-  try {
-    await exchangeCode(code, clientId, clientSecret, redirectUri);
-    console.log('[Keap] OAuth successful — tokens stored');
-    res.send(
-      '<h2>Keap connected!</h2><p>You can close this tab. Run <code>POST /sync</code> to do an initial sync.</p>'
-    );
-  } catch (err) {
-    console.error('[Keap] OAuth callback error:', err);
-    res.status(500).send(`OAuth error: ${err}`);
-  }
-});
-
 app.post('/sync', async (_req: Request, res: Response) => {
-  if (!loadTokens()) {
-    res.status(401).json({ error: 'Not authenticated — visit /auth first' });
+  if (!isConfigured(clientId, clientSecret)) {
+    res.status(500).json({ error: 'KEAP_CLIENT_ID or KEAP_CLIENT_SECRET not set' });
     return;
   }
   try {
@@ -219,7 +188,6 @@ app.post('/sync', async (_req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`Keap sync server running on port ${PORT}`);
   console.log(`  Health:   http://localhost:${PORT}/health`);
-  console.log(`  Auth:     http://localhost:${PORT}/auth  (visit in browser to connect)`);
   console.log(`  Sync:     POST http://localhost:${PORT}/sync`);
   if (!nicheBusinessId) console.warn('  WARNING: NICHE_BUSINESS_ID not set');
   if (!clientId) console.warn('  WARNING: KEAP_CLIENT_ID not set');

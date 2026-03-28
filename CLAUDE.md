@@ -13,10 +13,10 @@ Integrations built:
 - **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
 - **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
 - **Freshsales** — Node.js Express server (port 9006) — API key auth + REST API polling, confirmed working end-to-end
-- **Close CRM** — Node.js Express server (port 9008) — API key auth + REST API polling (needs account)
-- **Keap / Infusionsoft** — Node.js Express server (port 9009) — OAuth 2.0 + REST API polling (needs account)
-- **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling (needs account)
-- **Pipedrive** — Node.js Express server (port 9011) — OAuth 2.0 + REST API polling (needs account)
+- **Close CRM** — Node.js Express server (port 9008) — API key auth + REST API polling, confirmed working end-to-end
+- **Keap / Infusionsoft** — Node.js Express server (port 9009) — blocked (auth restricted to approved Keap partners)
+- **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling, confirmed working end-to-end
+- **Pipedrive** — Node.js Express server (port 9011) — personal API token + REST API polling, confirmed working end-to-end
 
 All Node.js servers are deployed on **Railway** (one service per integration). See `docs/deployment.md` for the full Railway setup guide, env var reference, and post-deploy checklist.
 
@@ -361,21 +361,18 @@ packages/
 
 **Status:** Code complete — needs developer sandbox account.
 
-### One-time OAuth setup
-1. Sign up at `https://developer.infusionsoft.com` → Create App → select Sandbox
-2. Set Redirect URI: `http://localhost:9009/callback` (local) + `https://<railway-url>/callback` (production)
-3. Copy Client ID → `KEAP_CLIENT_ID` in `.env`
-4. Copy Client Secret → `KEAP_CLIENT_SECRET` in `.env`
-5. Create a Niche app with all scopes → `NICHE_KEAP_CLIENT_ID` / `NICHE_KEAP_CLIENT_SECRET` in `.env`
-6. Build and start: `pnpm build:keap && pnpm start:keap`
-7. Visit `http://localhost:9009/auth` in browser → approve in Keap
-8. Trigger initial sync: `curl -X POST http://localhost:9009/sync`
+### Setup (no OAuth browser flow — service account)
+1. Go to `https://developer.infusionsoft.com` → your app → **API Keys** → **Add Key**
+2. Copy Client ID → `KEAP_CLIENT_ID` in `.env`
+3. Copy Client Secret → `KEAP_CLIENT_SECRET` in `.env`
+   (No redirect URI needed — Keap issues service account keys, not OAuth apps)
+4. Create a Niche app with all scopes → `NICHE_KEAP_CLIENT_ID` / `NICHE_KEAP_CLIENT_SECRET` in `.env`
+5. Build and start: `pnpm build:keap && pnpm start:keap`
+6. Trigger sync: `curl -X POST http://localhost:9009/sync`
 
 ### Routes
 - `GET /health` — status check
-- `GET /auth` — start OAuth flow (visit in browser)
-- `GET /callback` — OAuth redirect target
-- `POST /sync` — manual sync trigger
+- `POST /sync` — manual sync trigger (no auth flow needed)
 
 ### Sync behavior
 - Syncs **Contacts** from Keap
@@ -384,8 +381,9 @@ packages/
 - In-memory dedup with 24-hour TTL
 
 ### Critical Keap gotchas
-- **Token endpoint**: `https://api.infusionsoft.com/token` — uses HTTP Basic auth (clientId:clientSecret)
-- **Scope is just `full`** — Keap uses a single all-access scope
+- **Service account, not OAuth** — Keap's developer portal issues API Keys (client_id + client_secret) used with `grant_type=client_credentials`. No browser redirect, no redirect URI registration. Trying to use authorization_code flow gives "Application not authorized to use CAS".
+- **Token endpoint**: `POST https://api.infusionsoft.com/token` with `grant_type=client_credentials&client_id=...&client_secret=...` (form-encoded, no Basic auth)
+- **Token is cached in-memory** — re-fetched automatically when expired
 - **Contacts list endpoint**: `GET /crm/rest/v2/contacts?since=<ISO>&limit=200&order_by=last_updated&order_direction=DESCENDING`
 - **Pagination**: response includes `next` field (full URL) when more pages exist
 - **Phone/email arrays**: `phone_numbers[0].number` and `email_addresses[0].email` — first entry is primary
@@ -426,24 +424,18 @@ packages/
 
 ## Pipedrive Integration
 
-**Status:** Code complete — needs developer sandbox account.
+**Status:** Complete and confirmed working (`{"ok":true,"synced":1}`).
 
-### One-time OAuth setup
-1. Sign up for developer sandbox at `https://pipedrive.com/developer-sandbox-sign-up`
-2. In the Developer Hub, create a new app
-3. Set Callback URL: `http://localhost:9011/callback` (local) + `https://<railway-url>/callback` (production)
-4. Copy Client ID → `PIPEDRIVE_CLIENT_ID` in `.env`
-5. Copy Client Secret → `PIPEDRIVE_CLIENT_SECRET` in `.env`
-6. Create a Niche app with all scopes → `NICHE_PIPEDRIVE_CLIENT_ID` / `NICHE_PIPEDRIVE_CLIENT_SECRET` in `.env`
-7. Build and start: `pnpm build:pipedrive && pnpm start:pipedrive`
-8. Visit `http://localhost:9011/auth` in browser → approve in Pipedrive
-9. Trigger initial sync: `curl -X POST http://localhost:9011/sync`
+### Setup (no OAuth — personal API token)
+1. In Pipedrive: **Settings → Personal preferences → API** → copy the token
+2. Copy token → `PIPEDRIVE_API_TOKEN` in `.env`
+3. Create a Niche app with all scopes → `NICHE_PIPEDRIVE_CLIENT_ID` / `NICHE_PIPEDRIVE_CLIENT_SECRET` in `.env`
+4. Build and start: `pnpm build:pipedrive && pnpm start:pipedrive`
+5. Trigger initial sync: `curl -X POST http://localhost:9011/sync`
 
 ### Routes
 - `GET /health` — status check
-- `GET /auth` — start OAuth flow (visit in browser)
-- `GET /callback` — OAuth redirect target
-- `POST /sync` — manual sync trigger
+- `POST /sync` — manual sync trigger (no auth flow needed)
 
 ### Sync behavior
 - Syncs **Persons** from Pipedrive (persons = contacts with phone + email)
@@ -452,11 +444,10 @@ packages/
 - In-memory dedup with 24-hour TTL
 
 ### Critical Pipedrive gotchas
-- **Token endpoint**: `https://oauth.pipedrive.com/oauth/token` — uses HTTP Basic auth (clientId:clientSecret)
-- **`api_domain` in token response** — use this as the base URL for all API calls (e.g. `yourcompany.pipedrive.com`). Don't hardcode `api.pipedrive.com`.
+- **Personal API token, not OAuth** — token passed as `api_token` query param on all requests. Never expires unless manually regenerated.
+- **API base**: `https://api.pipedrive.com/v1` — no company-specific domain needed for personal token auth
 - **Phone/email are arrays**: `phone: [{ value, primary }]` and `email: [{ value, primary }]` — pick the `primary: true` entry, fall back to first
 - **Pagination**: `additional_data.pagination.more_items_in_collection` signals more pages; use `start` offset param
-- **Sandbox inactivity**: sandbox closes after 6 months without a published marketplace app — keep it active
 
 ---
 
@@ -466,7 +457,7 @@ packages/
 - **Close CRM** — code in `packages/close-crm/`; email `support@close.com` for free dev org; API key from Settings → API Keys; `CLOSE_CRM_API_KEY` in .env
 - **Keap (Infusionsoft)** — code in `packages/keap/`; sign up at `developer.infusionsoft.com`; OAuth 2.0; `KEAP_CLIENT_ID` / `KEAP_CLIENT_SECRET` in .env
 - **ActiveCampaign** — code in `packages/activecampaign/`; sign up at `developers.activecampaign.com`; API key from Settings → Developer; `ACTIVECAMPAIGN_API_KEY` + `ACTIVECAMPAIGN_BASE_URL` in .env
-- **Pipedrive** — code in `packages/pipedrive/`; sign up at `pipedrive.com/developer-sandbox-sign-up`; OAuth 2.0; `PIPEDRIVE_CLIENT_ID` / `PIPEDRIVE_CLIENT_SECRET` in .env
+- **Pipedrive** — ✅ locally verified (`{"ok":true,"synced":1}`); personal API token (`PIPEDRIVE_API_TOKEN`); needs Railway deploy
 
 ### Not yet built
 - **Microsoft Dynamics 365** — not started; HARD difficulty; free sandbox via Power Apps Developer Plan (`https://aka.ms/PowerAppsDevPlan`); OData v4 REST API, OAuth 2.0 client credentials (Entra ID), phone/email fully exposed on leads + contacts entities; polling pattern same as Jobber; port 9007

@@ -5,16 +5,12 @@
  *   - Nightly: runs automatically at midnight (default lookback: 25 hours)
  *   - Manual:  POST /sync to trigger immediately
  *
- * OAuth setup (one-time):
- *   1. Sign up for a Pipedrive developer sandbox at https://pipedrive.com/developer-sandbox-sign-up
- *   2. In the Pipedrive developer hub, create a new app
- *   3. Set Callback URL: http://localhost:9011/callback (local) or https://<railway-url>/callback (prod)
- *   4. Copy Client ID → PIPEDRIVE_CLIENT_ID in .env
- *   5. Copy Client Secret → PIPEDRIVE_CLIENT_SECRET in .env
- *   6. Create a Niche app with all scopes → NICHE_PIPEDRIVE_CLIENT_ID / _CLIENT_SECRET in .env
- *   7. Build and start: pnpm build:pipedrive && pnpm start:pipedrive
- *   8. Visit http://localhost:9011/auth in browser → approve in Pipedrive
- *   9. Trigger initial sync: POST http://localhost:9011/sync
+ * Setup:
+ *   1. In Pipedrive: Settings → Personal preferences → API → copy token
+ *   2. Set PIPEDRIVE_API_TOKEN in .env
+ *   3. Create a Niche app with all scopes → NICHE_PIPEDRIVE_CLIENT_ID / _CLIENT_SECRET in .env
+ *   4. Build and start: pnpm build:pipedrive && pnpm start:pipedrive
+ *   5. Trigger initial sync: POST http://localhost:9011/sync
  */
 
 import path from 'path';
@@ -27,7 +23,7 @@ import axios from 'axios';
 import { NicheClient, getNicheConfigForIntegration } from '@niche-integrations/core';
 import type { PipedrivePerson, PipedriveListResponse } from './types';
 import { transformPersonToNiche } from './transformer';
-import { buildAuthUrl, exchangeCode, getValidAccessToken, loadTokens } from './auth';
+import { isConfigured } from './auth';
 
 const app = express();
 app.use(express.json());
@@ -36,10 +32,8 @@ const nicheClient = new NicheClient(getNicheConfigForIntegration('pipedrive'));
 const nicheBusinessId = process.env.NICHE_BUSINESS_ID || '';
 const PORT = parseInt(process.env.PORT || process.env.PIPEDRIVE_PORT || '9011', 10);
 
-const clientId = process.env.PIPEDRIVE_CLIENT_ID || '';
-const clientSecret = process.env.PIPEDRIVE_CLIENT_SECRET || '';
-const redirectUri =
-  process.env.PIPEDRIVE_REDIRECT_URI || `http://localhost:${PORT}/callback`;
+const apiToken = process.env.PIPEDRIVE_API_TOKEN || '';
+const API_BASE = 'https://api.pipedrive.com/v1';
 
 const SYNC_LOOKBACK_HOURS = parseInt(process.env.PIPEDRIVE_SYNC_LOOKBACK_HOURS || '25', 10);
 
@@ -65,8 +59,6 @@ setInterval(() => {
 // Pipedrive REST API helpers
 // ---------------------------------------------------------------------------
 async function fetchPersonsSince(sinceIso: string): Promise<PipedrivePerson[]> {
-  const { token, apiDomain } = await getValidAccessToken(clientId, clientSecret);
-  const apiBase = `https://${apiDomain}/v1`;
   const all: PipedrivePerson[] = [];
   let start = 0;
   const limit = 100;
@@ -74,10 +66,10 @@ async function fetchPersonsSince(sinceIso: string): Promise<PipedrivePerson[]> {
 
   while (true) {
     const res = await axios.get<PipedriveListResponse<PipedrivePerson>>(
-      `${apiBase}/persons`,
+      `${API_BASE}/persons`,
       {
-        headers: { Authorization: `Bearer ${token}` },
         params: {
+          api_token: apiToken,
           since: sinceIso,
           limit,
           start,
@@ -169,40 +161,13 @@ app.get('/health', (_req: Request, res: Response) => {
     status: 'ok',
     service: 'pipedrive-sync',
     businessId: nicheBusinessId || '(not set)',
-    authenticated: !!loadTokens(),
-    configured: !!(clientId && clientSecret),
+    configured: isConfigured(apiToken),
   });
 });
 
-app.get('/auth', (_req: Request, res: Response) => {
-  if (!clientId) {
-    res.status(500).send('PIPEDRIVE_CLIENT_ID not set');
-    return;
-  }
-  res.redirect(buildAuthUrl(clientId, redirectUri));
-});
-
-app.get('/callback', async (req: Request, res: Response) => {
-  const code = req.query.code as string | undefined;
-  if (!code) {
-    res.status(400).send('Missing code parameter');
-    return;
-  }
-  try {
-    await exchangeCode(code, clientId, clientSecret, redirectUri);
-    console.log('[Pipedrive] OAuth successful — tokens stored');
-    res.send(
-      '<h2>Pipedrive connected!</h2><p>You can close this tab. Run <code>POST /sync</code> to do an initial sync.</p>'
-    );
-  } catch (err) {
-    console.error('[Pipedrive] OAuth callback error:', err);
-    res.status(500).send(`OAuth error: ${err}`);
-  }
-});
-
 app.post('/sync', async (_req: Request, res: Response) => {
-  if (!loadTokens()) {
-    res.status(401).json({ error: 'Not authenticated — visit /auth first' });
+  if (!isConfigured(apiToken)) {
+    res.status(500).json({ error: 'PIPEDRIVE_API_TOKEN not set' });
     return;
   }
   try {
@@ -220,11 +185,9 @@ app.post('/sync', async (_req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`Pipedrive sync server running on port ${PORT}`);
   console.log(`  Health:   http://localhost:${PORT}/health`);
-  console.log(`  Auth:     http://localhost:${PORT}/auth  (visit in browser to connect)`);
   console.log(`  Sync:     POST http://localhost:${PORT}/sync`);
   if (!nicheBusinessId) console.warn('  WARNING: NICHE_BUSINESS_ID not set');
-  if (!clientId) console.warn('  WARNING: PIPEDRIVE_CLIENT_ID not set');
-  if (!clientSecret) console.warn('  WARNING: PIPEDRIVE_CLIENT_SECRET not set');
+  if (!apiToken) console.warn('  WARNING: PIPEDRIVE_API_TOKEN not set');
   scheduleNightlySync();
 });
 

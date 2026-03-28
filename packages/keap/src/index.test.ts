@@ -1,5 +1,6 @@
 /**
  * Integration tests for the Keap Express server.
+ * Keap uses service account (client_credentials) — no OAuth browser flow.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -21,12 +22,9 @@ vi.mock('@niche-integrations/core', () => ({
   getNicheConfigForIntegration: () => ({}),
 }));
 
-// loadTokens returns null (no token file) — /sync must return 401
 vi.mock('./auth', () => ({
-  buildAuthUrl: vi.fn(() => 'https://accounts.infusionsoft.com/app/oauth/authorize?mock'),
-  exchangeCode: vi.fn(),
   getValidAccessToken: vi.fn(),
-  loadTokens: vi.fn(() => null),
+  isConfigured: vi.fn(() => false),
 }));
 
 import app from './index';
@@ -40,25 +38,17 @@ describe('keap server', () => {
       expect(res.body.service).toBe('keap-sync');
     });
 
-    it('reports authenticated: false when no tokens', async () => {
+    it('reports configured: false when credentials not set', async () => {
       const res = await request(app).get('/health');
-      expect(res.body.authenticated).toBe(false);
-    });
-  });
-
-  describe('GET /auth', () => {
-    it('redirects to Keap OAuth when KEAP_CLIENT_ID not set', async () => {
-      const res = await request(app).get('/auth');
-      // clientId is empty string — returns 500
-      expect(res.status).toBe(500);
+      expect(res.body.configured).toBe(false);
     });
   });
 
   describe('POST /sync', () => {
-    it('returns 401 when not authenticated', async () => {
+    it('returns 500 when credentials not configured', async () => {
       const res = await request(app).post('/sync');
-      expect(res.status).toBe(401);
-      expect(res.body.error).toMatch(/Not authenticated/);
+      expect(res.status).toBe(500);
+      expect(res.body.error).toMatch(/KEAP_CLIENT_ID|KEAP_CLIENT_SECRET/);
     });
   });
 });

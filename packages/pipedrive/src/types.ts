@@ -1,16 +1,9 @@
 /**
  * Pipedrive REST API v1 types.
  *
- * API base: https://api.pipedrive.com/v1  (or https://<company>.pipedrive.com/api/v1)
- * Auth: OAuth 2.0 (access token in Authorization header)
+ * API base: https://api.pipedrive.com/v1
+ * Auth: personal API token passed as `api_token` query param
  */
-
-export interface PipedriveTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number; // ms since epoch
-  api_domain: string; // e.g. "yourcompany.pipedrive.com"
-}
 
 export interface PipedrivePhoneEmail {
   value: string;

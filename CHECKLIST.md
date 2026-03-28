@@ -128,17 +128,12 @@ These are confirmed working locally. Each needs a Railway service + production O
   - [ ] Deploy to Railway → verify production sync
   - [ ] **Submit to competition**
 
-### 8. Keap / Infusionsoft (Port 9009)
-- **Type:** OAuth 2.0 + REST API polling
+### 8. Keap / Infusionsoft (Port 9009) — 🚫 BLOCKED
 - **Code:** `packages/keap/`
-- **Remaining:**
-  - [ ] Sign up for sandbox at `https://developer.infusionsoft.com` → Create App
-  - [ ] Set redirect URI: `http://localhost:9009/callback`
-  - [ ] `KEAP_CLIENT_ID` / `KEAP_CLIENT_SECRET` in .env
-  - [ ] Create Niche app → `NICHE_KEAP_CLIENT_ID` / `_CLIENT_SECRET`
-  - [ ] `pnpm build:keap && pnpm start:keap` → visit `/auth` → `POST /sync` → verify
-  - [ ] Deploy to Railway → re-auth with Railway URL → verify production sync
-  - [ ] **Submit to competition**
+- **Blocker:** Sandbox auth is broken for regular developer accounts:
+  - `authorization_code` flow → "Application not authorized to use CAS"
+  - `client_credentials` flow → "client_id does not have a trusted service account role" (restricted to approved Keap partners only)
+- **Status:** Skip unless Keap grants partner-level access
 
 ### 9. ActiveCampaign (Port 9010)
 - **Type:** API key auth + REST API polling
@@ -151,16 +146,15 @@ These are confirmed working locally. Each needs a Railway service + production O
   - [ ] **Submit to competition**
 
 ### 10. Pipedrive (Port 9011)
-- **Type:** OAuth 2.0 + REST API polling
+- **Type:** Personal API token + REST API polling
 - **Code:** `packages/pipedrive/`
 - **Remaining:**
-  - [ ] Sign up for developer sandbox at `https://pipedrive.com/developer-sandbox-sign-up`
-  - [ ] Developer hub → create app → set callback URL to `http://localhost:9011/callback`
-  - [ ] `PIPEDRIVE_CLIENT_ID` / `PIPEDRIVE_CLIENT_SECRET` in .env
-  - [ ] Create Niche app → `NICHE_PIPEDRIVE_CLIENT_ID` / `_CLIENT_SECRET`
-  - [ ] `pnpm build:pipedrive && pnpm start:pipedrive` → visit `/auth` → `POST /sync` → verify
-  - [ ] Deploy to Railway → re-auth with Railway URL → verify production sync
+  - [x] `PIPEDRIVE_API_TOKEN` in .env (Settings → Personal preferences → API)
+  - [x] Create Niche app → `NICHE_PIPEDRIVE_CLIENT_ID` / `_CLIENT_SECRET`
+  - [x] `pnpm build:pipedrive && pnpm start:pipedrive` → `POST /sync` → confirmed `{"ok":true,"synced":1}`
+  - [ ] Deploy to Railway → verify production sync
   - [ ] **Submit to competition**
+- **Notes:** No OAuth flow — personal API token never expires unless manually regenerated
 
 ---
 
@@ -204,9 +198,9 @@ These are confirmed working locally. Each needs a Railway service + production O
 | 5 | Zoho CRM | ✅ | ✅ | ✅ Online | ⬜ |
 | 6 | Freshsales | ✅ | ✅ | ✅ Online | ⬜ |
 | 7 | Close CRM | ✅ | ✅ | ⬜ | ⬜ |
-| 8 | Keap | ✅ | ⬜ | ⬜ | ⬜ |
+| 8 | Keap | ✅ | 🚫 blocked | ⬜ | ⬜ |
 | 9 | ActiveCampaign | ✅ | ✅ | ⬜ | ⬜ |
-| 10 | Pipedrive | ✅ | ⬜ | ⬜ | ⬜ |
+| 10 | Pipedrive | ✅ | ✅ | ⬜ | ⬜ |
 | 11 | Microsoft Dynamics 365 | ⬜ | ⬜ | ⬜ | ⬜ |
 | — | HubSpot | ✅ (partial) | ⬜ | ⬜ | 🚫 (someone else) |
 | — | JobNimbus | 🚧 | ⬜ | ⬜ | ⬜ (blocked) |
