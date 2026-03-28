@@ -90,26 +90,10 @@
 
 ---
 
-## 🏗️ Code Complete — Needs Account
-
-### Microsoft Dynamics 365 (Port 9007)
-- **Type:** OAuth 2.0 client credentials (Entra ID) + OData v4 REST polling
-- **Code:** `packages/dynamics365/`
-- **Blocker:** Requires paid Dynamics 365 account ($180/mo) or Power Apps Developer Plan (requires work email). No accessible free sandbox.
-- **Remaining:**
-  - [ ] Azure Portal → Entra ID → App registrations → create app
-  - [ ] Grant Dynamics CRM API permission + admin consent → create Application User
-  - [ ] Set `DYNAMICS_TENANT_ID`, `DYNAMICS_CLIENT_ID`, `DYNAMICS_CLIENT_SECRET`, `DYNAMICS_INSTANCE_URL` in .env
-  - [ ] Create Niche app → `NICHE_DYNAMICS365_CLIENT_ID` / `_CLIENT_SECRET` in .env
-  - [ ] `pnpm build:dynamics365 && pnpm start:dynamics365` → `POST /sync` → verify
-
----
-
 ## 🚫 Blocked / Skipped
 
 | Integration | Reason |
 |---|---|
-| **Microsoft Dynamics 365** | Requires paid account or work-email-gated developer plan |
 | **Zapier** | Claimed by another competitor |
 | **Housecall Pro** | API requires MAX plan ($329/mo) |
 | **Angi (HomeAdvisor)** | Requires active contractor account + manual setup by Angi team |
@@ -138,7 +122,6 @@
 | 8 | ActiveCampaign | ✅ | ✅ | ⬜ |
 | 9 | Pipedrive | ✅ | ✅ | ⬜ |
 | 10 | HubSpot | ✅ | ✅ | ⬜ |
-| 11 | Microsoft Dynamics 365 | ✅ | ⬜ | ⬜ |
-| — | JobNimbus | 🚧 scaffolded | ⬜ | — |
+| 11 | Microsoft Dynamics 365 | ✅ | ✅ | ⬜ |
 
-**10 integrations locally verified and ready to submit.**
+**11 integrations ready to submit.**

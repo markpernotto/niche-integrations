@@ -18,9 +18,7 @@ A monorepo of integrations for the [Niche Partner API](https://app.nicheandleads
 | **ActiveCampaign** | Polling sync | API key | ✅ Complete |
 | **Pipedrive** | Polling sync | Personal API token | ✅ Complete |
 | **HubSpot** | Outbound polling sync (Niche → HubSpot) | Private app token | ✅ Complete |
-| **Microsoft Dynamics 365** | Polling sync | OAuth 2.0 client credentials (Entra ID) | 🏗️ Code complete — needs account |
-| **JobNimbus** | Webhook receiver | API key | 🚧 Scaffolded |
-| **MarketSharp** | Polling sync | API key | 🚧 Scaffolded |
+| **Microsoft Dynamics 365** | Polling sync | OAuth 2.0 client credentials (Entra ID) | ✅ Complete |
 
 ---
 
@@ -106,7 +104,7 @@ packages/
   core/             # Shared Niche API client + per-integration credential loading
   wordpress/        # PHP plugin — installs directly into WordPress
   facebook-leads/   # Webhook server for Facebook/Instagram Lead Ads
-  hubspot/          # Webhook + polling sync for HubSpot contacts and deals
+  hubspot/          # Outbound polling sync — Niche leads + calls → HubSpot contacts, deals, engagements
   jobber/           # OAuth + GraphQL polling sync for Jobber clients
   salesforce/       # OAuth + PKCE + REST polling for Salesforce leads/contacts
   zoho-crm/         # OAuth + REST polling for Zoho CRM leads/contacts
@@ -115,8 +113,6 @@ packages/
   activecampaign/   # API key + REST polling for ActiveCampaign contacts
   pipedrive/        # Personal API token + REST polling for Pipedrive persons
   dynamics365/      # OAuth client credentials + OData polling for Dynamics 365
-  jobnimbus/        # Webhook receiver (scaffolded — needs account)
-  marketsharp/      # Polling sync (scaffolded — needs account)
 ```
 
 ---
