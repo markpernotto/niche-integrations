@@ -8,13 +8,12 @@ Built for the Niche Integration Competition (deadline March 30, 2026). Submitted
 Integrations built:
 - **WordPress** — PHP plugin, direct API calls from WP (no relay server needed)
 - **Facebook Lead Ads** — Node.js Express webhook server (port 6666)
-- **HubSpot** — Node.js Express webhook server (port 7777) — webhook + polling, confirmed working end-to-end
+- **HubSpot** — Node.js Express server (port 7777) — Niche → HubSpot outbound sync; polls Niche for leads + completed calls, creates HubSpot Contacts + Deals + Call engagements, confirmed working end-to-end (`{"ok":true,"leads":53,"calls":1}`)
 - **Jobber** — Node.js Express server (port 9003) — OAuth 2.0 + GraphQL polling, confirmed working end-to-end
 - **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
 - **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
 - **Freshsales** — Node.js Express server (port 9006) — API key auth + REST API polling, confirmed working end-to-end
 - **Close CRM** — Node.js Express server (port 9008) — API key auth + REST API polling, confirmed working end-to-end
-- **Keap / Infusionsoft** — Node.js Express server (port 9009) — blocked (auth restricted to approved Keap partners)
 - **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling, confirmed working end-to-end
 - **Pipedrive** — Node.js Express server (port 9011) — personal API token + REST API polling, confirmed working end-to-end
 - **Microsoft Dynamics 365** — Node.js Express server (port 9007) — OAuth 2.0 client credentials (Entra ID) + OData v4 REST polling (needs account)
@@ -358,39 +357,6 @@ packages/
 
 ---
 
-## Keap / Infusionsoft Integration
-
-**Status:** Code complete — needs developer sandbox account.
-
-### Setup (no OAuth browser flow — service account)
-1. Go to `https://developer.infusionsoft.com` → your app → **API Keys** → **Add Key**
-2. Copy Client ID → `KEAP_CLIENT_ID` in `.env`
-3. Copy Client Secret → `KEAP_CLIENT_SECRET` in `.env`
-   (No redirect URI needed — Keap issues service account keys, not OAuth apps)
-4. Create a Niche app with all scopes → `NICHE_KEAP_CLIENT_ID` / `NICHE_KEAP_CLIENT_SECRET` in `.env`
-5. Build and start: `pnpm build:keap && pnpm start:keap`
-6. Trigger sync: `curl -X POST http://localhost:9009/sync`
-
-### Routes
-- `GET /health` — status check
-- `POST /sync` — manual sync trigger (no auth flow needed)
-
-### Sync behavior
-- Syncs **Contacts** from Keap
-- Nightly sync auto-schedules at midnight local time
-- Default lookback: 25 hours (`KEAP_SYNC_LOOKBACK_HOURS`)
-- In-memory dedup with 24-hour TTL
-
-### Critical Keap gotchas
-- **Service account, not OAuth** — Keap's developer portal issues API Keys (client_id + client_secret) used with `grant_type=client_credentials`. No browser redirect, no redirect URI registration. Trying to use authorization_code flow gives "Application not authorized to use CAS".
-- **Token endpoint**: `POST https://api.infusionsoft.com/token` with `grant_type=client_credentials&client_id=...&client_secret=...` (form-encoded, no Basic auth)
-- **Token is cached in-memory** — re-fetched automatically when expired
-- **Contacts list endpoint**: `GET /crm/rest/v2/contacts?since=<ISO>&limit=200&order_by=last_updated&order_direction=DESCENDING`
-- **Pagination**: response includes `next` field (full URL) when more pages exist
-- **Phone/email arrays**: `phone_numbers[0].number` and `email_addresses[0].email` — first entry is primary
-
----
-
 ## ActiveCampaign Integration
 
 **Status:** Code complete — needs developer sandbox account.
@@ -509,7 +475,7 @@ packages/
 ### Blocked / Skipped
 - **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
 - **MarketSharp** — code scaffolded (`packages/marketsharp/`), needs sales demo / account
-- **HubSpot** — paused (someone else has it); polling + deals code is in place if we revisit
+- **HubSpot** — ✅ complete and locally verified (`{"ok":true,"leads":53,"calls":1}`)
 - **Housecall Pro** — skipped; requires MAX plan ($100/mo) for API access
 - **Angi (HomeAdvisor)** — skipped; requires active Angi contractor account + SPID + manual setup by Angi support; not a self-service developer integration
 - **Google Local Services Ads** — skipped; requires active LSA advertiser account + business verification; no sandbox
@@ -543,7 +509,6 @@ pnpm test:watch    # watch mode (vitest)
 | `packages/hubspot/src/transformer.test.ts` | Contact transform, deal transform with/without associated contact, mobilephone fallback |
 | `packages/activecampaign/src/transformer.test.ts` | firstName/lastName, phone normalization, email in info, Contact ID |
 | `packages/close-crm/src/transformer.test.ts` | Contact name from embedded contact, display_name fallback, phone/email from contact, Lead+Contact IDs |
-| `packages/keap/src/transformer.test.ts` | given/family name, phone from phone_numbers, email from email_addresses, company omission |
 | `packages/pipedrive/src/transformer.test.ts` | Person name, primary phone/email selection, fallback to first non-primary, org_name |
 
 **Phone normalization** is tested consistently across all integrations: 10-digit → `+1NNNN`, 11-digit starting with `1` → `+1NNNN`, formatted strings (parens/dashes) → normalized, international (UK etc.) → passed through as-is.
@@ -560,7 +525,6 @@ pnpm test:watch    # watch mode (vitest)
 | `packages/freshsales/src/index.test.ts` | Health, POST /sync 500 when API key/domain not configured |
 | `packages/activecampaign/src/index.test.ts` | Health, POST /sync 500 when API key/base URL not configured |
 | `packages/close-crm/src/index.test.ts` | Health, POST /sync 500 when API key not configured |
-| `packages/keap/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth 500 when client ID not set |
 | `packages/pipedrive/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Pipedrive |
 
 **Mocking pattern for integration tests:** `vi.hoisted()` sets env vars before module load (prevents dotenv from leaking real credentials), `vi.mock('dotenv')` prevents `.env` file loading, `vi.mock('@niche-integrations/core')` mocks `NicheClient` as a class with spy methods.
@@ -582,7 +546,6 @@ pnpm build:salesforce && pnpm start:salesforce          # port 9004
 pnpm build:zoho-crm && pnpm start:zoho-crm              # port 9005
 pnpm build:freshsales && pnpm start:freshsales          # port 9006
 pnpm build:close-crm && pnpm start:close-crm            # port 9008
-pnpm build:keap && pnpm start:keap                      # port 9009
 pnpm build:activecampaign && pnpm start:activecampaign  # port 9010
 pnpm build:pipedrive && pnpm start:pipedrive            # port 9011
 pnpm build:hubspot && pnpm start:hubspot                # port 7777

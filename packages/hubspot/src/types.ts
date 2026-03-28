@@ -1,59 +1,81 @@
 /**
- * HubSpot webhook event payload (array of subscription events)
- * https://developers.hubspot.com/docs/api/webhooks
+ * Types for the HubSpot outbound integration.
+ * Direction: Niche → HubSpot
  */
-export interface HubSpotWebhookEvent {
-  eventId: number;
-  subscriptionId: number;
-  portalId: number;
-  appId: number;
-  occurredAt: number;
-  subscriptionType: string; // e.g. "contact.creation", "contact.propertyChange"
-  attemptNumber: number;
-  objectId: number; // contactId
-  changeSource?: string;
-  changeFlag?: string;
-  propertyName?: string;
-  propertyValue?: string;
+
+// Full Niche lead object (superset of core NicheLead type)
+export interface NicheLeadFull {
+  id: string;
+  name?: string;
+  phone?: string;
+  info?: string;
+  typeOfWorkCategory?: string;
+  source?: string;
+  eligibleForConversion?: boolean;
+  maskedEmail?: string;
+  done?: boolean;
+  hasTemporaryNumber?: boolean;
+  sentToBusiness?: boolean;
+  outboundCallInitiated?: boolean;
+  isOffered?: boolean;
+  isOfferedReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-/**
- * HubSpot contact properties from CRM API v3
- */
-export interface HubSpotContactProperties {
+// Niche call from GET /businesses/{businessId}/calls
+export interface NicheCall {
+  id: string;
+  type?: 'INBOUND' | 'OUTBOUND';
+  status?: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  start?: string;
+  end?: string;
+  leadId?: string;
+  summary?: string;
+  transcript?: string;
+  duration?: number; // seconds
+  recordingUrl?: string;
+}
+
+// Niche paginated response envelope
+export interface NichePagedResponse<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+// HubSpot contact properties for create/update
+export interface HubSpotContactProps {
   firstname?: string;
   lastname?: string;
-  email?: string;
   phone?: string;
-  mobilephone?: string;
-  company?: string;
-  jobtitle?: string;
-  city?: string;
-  state?: string;
-  message?: string;
-  [key: string]: string | undefined;
+  email?: string;
+  niche_lead_id?: string;
 }
 
-export interface HubSpotContact {
-  id: string;
-  properties: HubSpotContactProperties;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface HubSpotDealProperties {
-  dealname?: string;
-  amount?: string;
-  dealstage?: string;
+// HubSpot deal properties for create
+export interface HubSpotDealProps {
+  dealname: string;
   pipeline?: string;
-  closedate?: string;
-  hs_deal_stage_label?: string;
-  [key: string]: string | undefined;
+  dealstage?: string;
 }
 
-export interface HubSpotDeal {
+// HubSpot call engagement properties
+export interface HubSpotCallProps {
+  hs_call_title: string;
+  hs_call_direction: string;
+  hs_call_status: string;
+  hs_call_duration?: string; // milliseconds as string
+  hs_call_body?: string;
+  hs_call_recording_url?: string;
+  hs_timestamp: string;
+}
+
+// Generic HubSpot CRM object response
+export interface HubSpotObject {
   id: string;
-  properties: HubSpotDealProperties;
-  createdAt: string;
-  updatedAt: string;
+  properties: Record<string, string | undefined>;
+  createdAt?: string;
+  updatedAt?: string;
 }

@@ -83,10 +83,10 @@
 ---
 
 ### 10. HubSpot
-- **Type:** Private app token + REST API polling + webhook receiver (port 7777)
+- **Type:** Niche → HubSpot outbound sync — Private app token + polling (port 7777)
 - **Code:** `packages/hubspot/`
-- **Local test:** Confirmed working (`{"ok":true,"contacts":1,"deals":1}`)
-- **Notes:** Likely claimed by another competitor — built ours anyway.
+- **Local test:** Confirmed working (`{"ok":true,"leads":53,"calls":1}`)
+- **Notes:** Syncs Niche leads → HubSpot Contacts + Deals. Syncs completed Niche calls → HubSpot Call engagements. Deduplicates contacts by phone/email. Closes deals when lead marked done. Likely claimed by another competitor — built ours anyway.
 
 ---
 
@@ -109,7 +109,6 @@
 
 | Integration | Reason |
 |---|---|
-| **Keap / Infusionsoft** | `client_credentials` restricted to approved Keap partners; `authorization_code` flow blocked for sandbox accounts |
 | **Microsoft Dynamics 365** | Requires paid account or work-email-gated developer plan |
 | **Zapier** | Claimed by another competitor |
 | **Housecall Pro** | API requires MAX plan ($329/mo) |
@@ -140,7 +139,6 @@
 | 9 | Pipedrive | ✅ | ✅ | ⬜ |
 | 10 | HubSpot | ✅ | ✅ | ⬜ |
 | 11 | Microsoft Dynamics 365 | ✅ | ⬜ | ⬜ |
-| — | Keap | ✅ | 🚫 blocked | — |
 | — | JobNimbus | 🚧 scaffolded | ⬜ | — |
 
 **10 integrations locally verified and ready to submit.**
