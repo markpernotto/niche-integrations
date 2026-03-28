@@ -20,7 +20,8 @@ export type IntegrationName =
   | 'close-crm'
   | 'keap'
   | 'activecampaign'
-  | 'pipedrive';
+  | 'pipedrive'
+  | 'dynamics365';
 
 const ENV_PREFIXES: Record<IntegrationName, string> = {
   wordpress: 'NICHE_WORDPRESS',
@@ -36,6 +37,7 @@ const ENV_PREFIXES: Record<IntegrationName, string> = {
   keap: 'NICHE_KEAP',
   activecampaign: 'NICHE_ACTIVECAMPAIGN',
   pipedrive: 'NICHE_PIPEDRIVE',
+  dynamics365: 'NICHE_DYNAMICS365',
 };
 
 /**

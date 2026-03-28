@@ -127,37 +127,6 @@ async function processContact(contactId: string | number): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Process a single deal
-// ---------------------------------------------------------------------------
-async function processDeal(dealId: string): Promise<boolean> {
-  if (isDealDuplicate(dealId)) {
-    console.log(`[HubSpot] Skipping duplicate deal ${dealId}`);
-    return false;
-  }
-
-  const deals = await fetchDealsUpdatedSince(new Date(0), hubspotAccessToken); // we already have the deal obj
-  // Actually we need the deal object — fetch inline
-  const { default: axios } = await import('axios');
-  const res = await axios.get(
-    `https://api.hubapi.com/crm/v3/objects/deals/${dealId}?properties=dealname,amount,dealstage,pipeline,closedate,hs_deal_stage_label`,
-    { headers: { Authorization: `Bearer ${hubspotAccessToken}` } }
-  );
-  const deal = res.data;
-
-  const contact = await fetchDealAssociatedContact(dealId, hubspotAccessToken);
-  const lead = transformDealToNicheLead(deal, contact);
-
-  if (!lead.phone && !lead.info?.includes('Email:')) {
-    console.warn(`[HubSpot] Deal ${dealId} has no phone or email — skipping`);
-    return false;
-  }
-
-  await nicheClient.createLead(nicheBusinessId, lead);
-  console.log(`[HubSpot] Lead created for deal ${dealId} (${lead.name ?? 'unnamed'})`);
-  return true;
-}
-
-// ---------------------------------------------------------------------------
 // Polling sync — contacts + deals
 // ---------------------------------------------------------------------------
 async function runSync(lookbackMs = POLL_LOOKBACK_MS): Promise<{ contacts: number; deals: number }> {

@@ -3,12 +3,12 @@
 ## What This Project Is
 
 A monorepo of integrations for the **Niche Partner API** (`https://app.nicheandleads.com/api/partner/v1/`).
-Goal: win the Niche Integration Competition (deadline March 30, 2026 — $1,000 per qualifying integration).
+Built for the Niche Integration Competition (deadline March 30, 2026). Submitted as a GitHub repo.
 
 Integrations built:
 - **WordPress** — PHP plugin, direct API calls from WP (no relay server needed)
 - **Facebook Lead Ads** — Node.js Express webhook server (port 6666)
-- **HubSpot** — Node.js Express webhook server (port 7777) — webhook relay + polling (paused, someone else has this)
+- **HubSpot** — Node.js Express webhook server (port 7777) — webhook + polling, confirmed working end-to-end
 - **Jobber** — Node.js Express server (port 9003) — OAuth 2.0 + GraphQL polling, confirmed working end-to-end
 - **Salesforce** — Node.js Express server (port 9004) — OAuth 2.0 + PKCE + REST API polling, confirmed working end-to-end
 - **Zoho CRM** — Node.js Express server (port 9005) — OAuth 2.0 + REST API polling, confirmed working end-to-end
@@ -17,8 +17,9 @@ Integrations built:
 - **Keap / Infusionsoft** — Node.js Express server (port 9009) — blocked (auth restricted to approved Keap partners)
 - **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling, confirmed working end-to-end
 - **Pipedrive** — Node.js Express server (port 9011) — personal API token + REST API polling, confirmed working end-to-end
+- **Microsoft Dynamics 365** — Node.js Express server (port 9007) — OAuth 2.0 client credentials (Entra ID) + OData v4 REST polling (needs account)
 
-All Node.js servers are deployed on **Railway** (one service per integration). See `docs/deployment.md` for the full Railway setup guide, env var reference, and post-deploy checklist.
+**Deployment:** Submitted as a GitHub repo. No hosted deployment required.
 
 ---
 
@@ -145,7 +146,7 @@ The `FACEBOOK_ACCESS_TOKEN` in `.env` (used to fetch lead data from the Graph AP
 
 ```
 docs/
-  deployment.md                      # Railway setup, env vars, post-deploy checklist
+  deployment.md                      # env var reference and setup notes
 packages/
   wordpress/
     plugin/niche-lead-capture.php   # WP plugin — pure PHP, no server needed
@@ -189,7 +190,7 @@ packages/
 
 ### One-time OAuth setup
 1. Create a Jobber developer account at [developer.getjobber.com](https://developer.getjobber.com) — **must be a different email** than your Jobber customer account
-2. Create an app — do **NOT** add a redirect URI for local dev (localhost is supported automatically and must not be listed). For Railway, add `https://<jobber-railway-url>/callback` as the redirect URI and set `JOBBER_REDIRECT_URI` in Railway env vars.
+2. Create an app — do **NOT** add a redirect URI for local dev (localhost is supported automatically and must not be listed). For production, add `https://<your-host>/callback` as the redirect URI and set `JOBBER_REDIRECT_URI` in env vars.
 3. Request scope: `read_clients`
 4. Copy `Client ID` and `Client Secret` into `.env` as `JOBBER_CLIENT_ID` / `JOBBER_CLIENT_SECRET`
 5. Create a Niche app with all scopes checked → copy into `.env` as `NICHE_JOBBER_CLIENT_ID` / `NICHE_JOBBER_CLIENT_SECRET`
@@ -223,7 +224,7 @@ packages/
 ### One-time OAuth setup
 1. In Salesforce Setup → **New External Client App** (NOT New Lightning App)
    - Enable OAuth Settings
-   - Callback URLs: `http://localhost:9004/callback` (local) + `https://<salesforce-railway-url>/callback` (production). Set `SALESFORCE_REDIRECT_URI` in Railway env vars to the production URL.
+   - Callback URLs: `http://localhost:9004/callback` (local) + `https://<your-host>/callback` (production). Set `SALESFORCE_REDIRECT_URI` in env vars.
    - Scopes: `Manage user data via APIs (api)` + `Perform requests at any time (refresh_token, offline_access)`
 2. Copy **Consumer Key** → `SALESFORCE_CLIENT_ID` in `.env`
 3. Copy **Consumer Secret** → `SALESFORCE_CLIENT_SECRET` in `.env`
@@ -262,7 +263,7 @@ packages/
 ### One-time OAuth setup
 1. Sign up for **Zoho CRM Developer Edition** (free, no expiry) at `https://www.zoho.com/crm/developer/developer-edition.html`
 2. Go to `https://api-console.zoho.com/` → **Add Client** → **Server Based Applications**
-3. Set Authorized Redirect URIs: `http://localhost:9005/callback` (local) + `https://<zoho-railway-url>/callback` (production). Set `ZOHO_REDIRECT_URI` in Railway env vars to the production URL.
+3. Set Authorized Redirect URIs: `http://localhost:9005/callback` (local) + `https://<your-host>/callback` (production). Set `ZOHO_REDIRECT_URI` in env vars.
 4. Copy **Consumer Key** → `ZOHO_CLIENT_ID` in `.env`
 5. Copy **Consumer Secret** → `ZOHO_CLIENT_SECRET` in `.env`
 6. Create a Niche app with all scopes → `NICHE_ZOHO_CRM_CLIENT_ID` / `NICHE_ZOHO_CRM_CLIENT_SECRET` in `.env`
@@ -451,16 +452,59 @@ packages/
 
 ---
 
+## Microsoft Dynamics 365 Integration
+
+**Status:** Code complete — needs Azure app registration + Dynamics environment.
+
+### Setup (one-time)
+1. **Get a Dynamics environment:** Sign up for Power Apps Developer Plan at `https://aka.ms/PowerAppsDevPlan` (free, provisions a full Dynamics 365 instance)
+2. **Register an Azure app:**
+   - Azure Portal → Microsoft Entra ID → App registrations → New registration
+   - Name: "Niche Integration", Supported account types: "Single tenant", no redirect URI
+   - Copy **Directory (tenant) ID** → `DYNAMICS_TENANT_ID` in `.env`
+   - Copy **Application (client) ID** → `DYNAMICS_CLIENT_ID` in `.env`
+   - Certificates & secrets → New client secret → copy value → `DYNAMICS_CLIENT_SECRET` in `.env`
+3. **Grant API permissions:**
+   - API permissions → Add permission → APIs my organization uses → search "Dynamics CRM"
+   - Select **Application permissions** → `user_impersonation`
+   - Click **Grant admin consent**
+4. **Create an Application User in Dynamics:**
+   - Dynamics admin center → Environments → your env → Settings → Users + permissions → Application users → New
+   - Set Application ID to your Azure client ID
+   - Assign security role: **System Administrator**
+5. Set `DYNAMICS_INSTANCE_URL` to your environment URL (e.g. `https://yourorg.crm.dynamics.com`) in `.env`
+6. Create a Niche app with all scopes → `NICHE_DYNAMICS365_CLIENT_ID` / `NICHE_DYNAMICS365_CLIENT_SECRET` in `.env`
+7. Build and start: `pnpm build:dynamics365 && pnpm start:dynamics365`
+8. Trigger sync: `curl -X POST http://localhost:9007/sync`
+
+### Routes
+- `GET /health` — status check
+- `POST /sync` — manual sync trigger (no auth flow needed — client credentials)
+
+### Sync behavior
+- Syncs both **Leads** and **Contacts** from Dynamics 365 (parallel fetch)
+- Nightly sync auto-schedules at midnight local time
+- Default lookback: 25 hours (`DYNAMICS_SYNC_LOOKBACK_HOURS`)
+- In-memory dedup with 24-hour TTL, keyed as `lead:<id>` / `contact:<id>`
+
+### Critical Dynamics 365 gotchas
+- **Client credentials, not auth code** — no browser redirect; token obtained server-side via `POST https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token`
+- **Scope is `{instanceUrl}/.default`** — must exactly match your Dynamics instance URL (e.g. `https://yourorg.crm.dynamics.com/.default`)
+- **Application User is required** — registering in Azure alone is not enough; you must also create an Application User inside Dynamics and assign a security role. Without this, API calls return 401.
+- **OData headers required**: `OData-MaxVersion: 4.0`, `OData-Version: 4.0`
+- **Pagination via `@odata.nextLink`** — follow the full URL in each response; stop when absent
+- **Date filter format**: `$filter=modifiedon gt 2026-03-28T00:00:00.000Z` (ISO 8601, no quotes)
+- **Phone fields**: `mobilephone` preferred over `telephone1`; both may be absent
+
+---
+
 ## Pending Work
 
 ### Needs account / credentials only (code complete)
-- **Close CRM** — code in `packages/close-crm/`; email `support@close.com` for free dev org; API key from Settings → API Keys; `CLOSE_CRM_API_KEY` in .env
-- **Keap (Infusionsoft)** — code in `packages/keap/`; sign up at `developer.infusionsoft.com`; OAuth 2.0; `KEAP_CLIENT_ID` / `KEAP_CLIENT_SECRET` in .env
-- **ActiveCampaign** — code in `packages/activecampaign/`; sign up at `developers.activecampaign.com`; API key from Settings → Developer; `ACTIVECAMPAIGN_API_KEY` + `ACTIVECAMPAIGN_BASE_URL` in .env
-- **Pipedrive** — ✅ locally verified (`{"ok":true,"synced":1}`); personal API token (`PIPEDRIVE_API_TOKEN`); needs Railway deploy
-
-### Not yet built
-- **Microsoft Dynamics 365** — not started; HARD difficulty; free sandbox via Power Apps Developer Plan (`https://aka.ms/PowerAppsDevPlan`); OData v4 REST API, OAuth 2.0 client credentials (Entra ID), phone/email fully exposed on leads + contacts entities; polling pattern same as Jobber; port 9007
+- **Close CRM** — ✅ locally verified; API key in .env; code in `packages/close-crm/`
+- **ActiveCampaign** — ✅ locally verified; API key + base URL in .env; code in `packages/activecampaign/`
+- **Pipedrive** — ✅ locally verified; personal API token in .env; code in `packages/pipedrive/`
+- **Microsoft Dynamics 365** — code in `packages/dynamics365/`; needs Azure app registration + Dynamics environment
 
 ### Blocked / Skipped
 - **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
