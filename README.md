@@ -117,6 +117,12 @@ packages/
 
 ---
 
+## Integrations We Investigated But Couldn't Complete
+
+Several integrations were researched and attempted but blocked by account access requirements, closed developer programs, or API limitations. See [BLOCKERS.md](BLOCKERS.md) for the full breakdown — including Zapier, ServiceTitan, Housecall Pro, and others. Happy to continue building these out if access can be arranged.
+
+---
+
 ## Testing
 
 ```bash
