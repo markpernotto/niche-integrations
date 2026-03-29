@@ -49,7 +49,7 @@ const leads = await client.listLeads('business-id', {
 
 ## Auth flow / where we obtain the token
 
-See **[docs/AUTH.md](../../docs/AUTH.md)** for where we obtain and send the token (`authenticate()`, `ensureAuthenticated()`, request interceptor in `packages/core/src/client.ts`), and how to test with `pnpm test:auth`.
+Token logic lives in `packages/core/src/client.ts`. `authenticate()` exchanges `client_id` + `client_secret` for a bearer token via `POST /oauth/token`. `ensureAuthenticated()` is called before every request and refreshes the token if expired. Test with `pnpm test:auth`.
 
 ## Environment Variables
 
