@@ -8,7 +8,6 @@ A monorepo of integrations for the [Niche Partner API](https://app.nicheandleads
 
 | Integration | Type | Auth | Status |
 |---|---|---|---|
-| **WordPress** | PHP plugin | OAuth2 client credentials | ✅ Complete |
 | **Facebook Lead Ads** | Webhook receiver | App secret verification | ✅ Complete |
 | **Jobber** | Polling sync | OAuth 2.0 (user) | ✅ Complete |
 | **Salesforce** | Polling sync | OAuth 2.0 + PKCE | ✅ Complete |
@@ -17,8 +16,9 @@ A monorepo of integrations for the [Niche Partner API](https://app.nicheandleads
 | **Close CRM** | Polling sync | API key (HTTP Basic) | ✅ Complete |
 | **ActiveCampaign** | Polling sync | API key | ✅ Complete |
 | **Pipedrive** | Polling sync | Personal API token | ✅ Complete |
-| **HubSpot** | Outbound polling sync (Niche → HubSpot) | Private app token | ✅ Complete |
 | **Microsoft Dynamics 365** | Polling sync | OAuth 2.0 client credentials (Entra ID) | ✅ Complete |
+| **WordPress** | PHP plugin | OAuth2 client credentials | ✅ Complete |
+| **HubSpot** | Outbound polling sync (Niche → HubSpot) | Private app token | ✅ Complete |
 
 ---
 
@@ -104,7 +104,7 @@ packages/
   core/             # Shared Niche API client + per-integration credential loading
   wordpress/        # PHP plugin — installs directly into WordPress
   facebook-leads/   # Webhook server for Facebook/Instagram Lead Ads
-  hubspot/          # Outbound polling sync — Niche leads + calls → HubSpot contacts, deals, engagements
+  hubspot/          # Outbound polling sync — Niche leads + completed calls → HubSpot contacts, deals, and call engagements (Niche call records confirmed appearing in HubSpot end-to-end)
   jobber/           # OAuth + GraphQL polling sync for Jobber clients
   salesforce/       # OAuth + PKCE + REST polling for Salesforce leads/contacts
   zoho-crm/         # OAuth + REST polling for Zoho CRM leads/contacts
@@ -112,7 +112,7 @@ packages/
   close-crm/        # API key + REST polling for Close CRM leads
   activecampaign/   # API key + REST polling for ActiveCampaign contacts
   pipedrive/        # Personal API token + REST polling for Pipedrive persons
-  dynamics365/      # OAuth client credentials + OData polling for Dynamics 365
+  dynamics365/      # OAuth client credentials + OData polling for Dynamics 365 (requires Azure app registration + a Dynamics environment — see .env.example)
 ```
 
 ---

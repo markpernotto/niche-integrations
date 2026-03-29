@@ -11,13 +11,6 @@ Additionally, the Niche API has no webhook subscription management endpoints (`P
 
 ---
 
-## Microsoft Dynamics 365
-**Blocker:** No accessible free sandbox — included in submission anyway.
-
-The Power Apps Developer Plan (which provisions a full Dynamics 365 environment) requires a work/school email address — personal Gmail accounts are not accepted. The paid Dynamics 365 Sales license starts at ~$180/month. The integration is included in the submission and requires Azure app registration + a Dynamics environment to activate.
-
----
-
 ## JobNimbus
 **Blocker:** No self-serve developer account.
 
