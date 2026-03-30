@@ -41,6 +41,3 @@ tmp/
 temp/
 *.tmp
 
-# Internal project files
-CLAUDE.md
-CHECKLIST.md

@@ -16,7 +16,7 @@ Integrations built:
 - **Close CRM** — Node.js Express server (port 9008) — API key auth + REST API polling, confirmed working end-to-end
 - **ActiveCampaign** — Node.js Express server (port 9010) — API key auth + REST API polling, confirmed working end-to-end
 - **Pipedrive** — Node.js Express server (port 9011) — personal API token + REST API polling, confirmed working end-to-end
-- **Microsoft Dynamics 365** — Node.js Express server (port 9007) — OAuth 2.0 client credentials (Entra ID) + OData v4 REST polling (needs account)
+- **Microsoft Dynamics 365** — Node.js Express server (port 9007) — OAuth 2.0 client credentials (Entra ID) + OData v4 REST polling (submitted; requires Azure app registration + Dynamics environment to activate)
 
 **Deployment:** Submitted as a GitHub repo. No hosted deployment required.
 
@@ -144,24 +144,18 @@ The `FACEBOOK_ACCESS_TOKEN` in `.env` (used to fetch lead data from the Graph AP
 ## Repo Structure
 
 ```
-docs/
-  deployment.md                      # env var reference and setup notes
 packages/
   wordpress/
     plugin/niche-lead-capture.php   # WP plugin — pure PHP, no server needed
   facebook-leads/
     src/index.ts                     # Express webhook server, port 6666
   hubspot/
-    src/index.ts                     # Express webhook server + polling, port 7777
+    src/index.ts                     # Express polling server, port 7777 — Niche → HubSpot outbound sync
   jobber/
     src/index.ts                     # Express server — OAuth flow + GraphQL polling, port 9003
     src/auth.ts                      # Jobber OAuth 2.0 token management
     src/transformer.ts               # JobberClient → Niche lead
     src/types.ts                     # Jobber type definitions
-  jobnimbus/
-    src/index.ts                     # Webhook receiver, port 8888 (scaffolded, needs account)
-  marketsharp/
-    src/index.ts                     # Polling server, port 9001 (scaffolded, needs account)
   salesforce/
     src/index.ts                     # Express server — OAuth 2.0 + PKCE + REST API polling, port 9004
     src/auth.ts                      # Salesforce OAuth 2.0 + PKCE token management
@@ -176,6 +170,22 @@ packages/
     src/index.ts                     # Express server — API key auth + REST API polling, port 9006
     src/transformer.ts               # FreshsalesContact → Niche lead
     src/types.ts                     # Freshsales type definitions
+  close-crm/
+    src/index.ts                     # Express server — API key auth + REST API polling, port 9008
+    src/transformer.ts               # CloseLead → Niche lead
+    src/types.ts                     # Close CRM type definitions
+  activecampaign/
+    src/index.ts                     # Express server — API key auth + REST API polling, port 9010
+    src/transformer.ts               # ActiveCampaignContact → Niche lead
+    src/types.ts                     # ActiveCampaign type definitions
+  pipedrive/
+    src/index.ts                     # Express server — personal API token + REST API polling, port 9011
+    src/transformer.ts               # PipedrivePerson → Niche lead
+    src/types.ts                     # Pipedrive type definitions
+  dynamics365/
+    src/index.ts                     # Express server — OAuth 2.0 client credentials + OData polling, port 9007
+    src/transformer.ts               # DynamicsLead/Contact → Niche lead
+    src/types.ts                     # Dynamics 365 type definitions
   core/
     src/credentials.ts               # Shared OAuth credential helpers (per-integration env prefixes)
     scripts/test-auth.js             # Manual API test script
@@ -327,7 +337,7 @@ packages/
 
 ## Close CRM Integration
 
-**Status:** Code complete — needs developer account.
+**Status:** Complete and confirmed working.
 
 ### Setup (no OAuth — API key only)
 1. Request a free developer org: email `support@close.com`, subject "Developer sandbox request"
@@ -359,7 +369,7 @@ packages/
 
 ## ActiveCampaign Integration
 
-**Status:** Code complete — needs developer sandbox account.
+**Status:** Complete and confirmed working.
 
 ### Setup (no OAuth — API key only)
 1. Sign up for a free 2-year dev sandbox at `https://developers.activecampaign.com`
@@ -420,7 +430,7 @@ packages/
 
 ## Microsoft Dynamics 365 Integration
 
-**Status:** Code complete — needs Azure app registration + Dynamics environment.
+**Status:** Complete — submitted as-is. Requires Azure app registration + a Dynamics environment to activate (see setup steps below).
 
 ### Setup (one-time)
 1. **Get a Dynamics environment:** Sign up for Power Apps Developer Plan at `https://aka.ms/PowerAppsDevPlan` (free, provisions a full Dynamics 365 instance)
@@ -464,24 +474,18 @@ packages/
 
 ---
 
-## Pending Work
+## Skipped / Blocked Integrations
 
-### Needs account / credentials only (code complete)
-- **Close CRM** — ✅ locally verified; API key in .env; code in `packages/close-crm/`
-- **ActiveCampaign** — ✅ locally verified; API key + base URL in .env; code in `packages/activecampaign/`
-- **Pipedrive** — ✅ locally verified; personal API token in .env; code in `packages/pipedrive/`
-- **Microsoft Dynamics 365** — code in `packages/dynamics365/`; needs Azure app registration + Dynamics environment
+Integrations that were researched but not built — see `BLOCKERS.md` for full details.
 
-### Blocked / Skipped
-- **JobNimbus** — code scaffolded (`packages/jobnimbus/`), waiting on account access
-- **MarketSharp** — code scaffolded (`packages/marketsharp/`), needs sales demo / account
-- **HubSpot** — ✅ complete and locally verified (`{"ok":true,"leads":53,"calls":1}`)
-- **Housecall Pro** — skipped; requires MAX plan ($100/mo) for API access
-- **Angi (HomeAdvisor)** — skipped; requires active Angi contractor account + SPID + manual setup by Angi support; not a self-service developer integration
-- **Google Local Services Ads** — skipped; requires active LSA advertiser account + business verification; no sandbox
-- **CompanyCam** — skipped; API does not expose customer phone or email — cannot create valid Niche leads (phone is required); only exposes project photos and company data
-- **LeadPerfection** — skipped; no public REST API (inbound POST only, can't read leads out); no free sandbox; requires paid account + vendor cooperation; same situation as MarketSharp
-- **ServiceTitan** — skipped for now; apply to developer program at developer.servicetitan.io
+- **Housecall Pro** — requires MAX plan (~$329/mo) for API access
+- **Angi (HomeAdvisor)** — no self-service path; requires active contractor account + manual setup by Angi support
+- **Google Local Services Ads** — requires active LSA advertiser account + business verification; no sandbox
+- **CompanyCam** — API does not expose customer phone or email; cannot construct a valid Niche lead
+- **LeadPerfection** — inbound-only API; no way to read leads out
+- **ServiceTitan** — closed developer program; application required
+- **JobNimbus** — no self-serve sandbox; removed from submission
+- **MarketSharp** — no self-serve API access; removed from submission
 
 ---
 
@@ -495,7 +499,7 @@ pnpm test          # run all tests once (vitest run)
 pnpm test:watch    # watch mode (vitest)
 ```
 
-### What's tested (205 tests, 20 files)
+### What's tested (203 tests, 20 files)
 
 **Unit tests — transformers (10 files):** Pure function tests, no mocking, no network.
 
@@ -525,7 +529,7 @@ pnpm test:watch    # watch mode (vitest)
 | `packages/freshsales/src/index.test.ts` | Health, POST /sync 500 when API key/domain not configured |
 | `packages/activecampaign/src/index.test.ts` | Health, POST /sync 500 when API key/base URL not configured |
 | `packages/close-crm/src/index.test.ts` | Health, POST /sync 500 when API key not configured |
-| `packages/pipedrive/src/index.test.ts` | Health, POST /sync 401 when no OAuth tokens, GET /auth redirects to Pipedrive |
+| `packages/pipedrive/src/index.test.ts` | Health, POST /sync 500 when API token not configured |
 
 **Mocking pattern for integration tests:** `vi.hoisted()` sets env vars before module load (prevents dotenv from leaking real credentials), `vi.mock('dotenv')` prevents `.env` file loading, `vi.mock('@niche-integrations/core')` mocks `NicheClient` as a class with spy methods.
 
